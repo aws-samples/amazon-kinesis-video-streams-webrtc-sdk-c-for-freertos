@@ -14,12 +14,12 @@ extern "C" {
 
 #define NUMBER_OF_H264_FRAME_FILES               1500
 #define NUMBER_OF_OPUS_FRAME_FILES               618
-#define DEFAULT_FPS_VALUE                        25
+#define DEFAULT_FPS_VALUE                        5
 #define DEFAULT_MAX_CONCURRENT_STREAMING_SESSION 10
 
 #define SAMPLE_MASTER_CLIENT_ID "ProducerMaster"
 #define SAMPLE_VIEWER_CLIENT_ID "ConsumerViewer"
-#define SAMPLE_CHANNEL_NAME     (PCHAR) "ScaryTestChannel"
+#define SAMPLE_CHANNEL_NAME     (PCHAR) CONFIG_AWS_KVS_CHANNEL
 
 #define SAMPLE_AUDIO_FRAME_DURATION (20 * HUNDREDS_OF_NANOS_IN_A_MILLISECOND)
 #define SAMPLE_STATS_DURATION       (60 * HUNDREDS_OF_NANOS_IN_A_SECOND)
@@ -73,11 +73,13 @@ typedef struct {
     TID audioSenderTid;
     TIMER_QUEUE_HANDLE timerQueueHandle;
     UINT32 iceCandidatePairStatsTimerId;
-    SampleStreamingMediaType mediaType;
-    startRoutine audioSource;
-    startRoutine videoSource;
+    SampleStreamingMediaType mediaType;//!< the control of video only, or video/audio.
+    startRoutine audioSource;//!< the thread handler of audio transmission.
+    startRoutine videoSource;//!< the thread handler of video transmission.
     startRoutine receiveAudioVideoSource;
+#ifdef ENABLE_DATA_CHANNEL
     RtcOnDataChannel onDataChannel;
+#endif
 
     TID signalingProcessor;
     PHashTable pPendingSignalingMessageForRemoteClient;
@@ -96,6 +98,8 @@ typedef struct {
     SignalingClientCallbacks signalingClientCallbacks;
     SignalingClientInfo clientInfo;
     RtcStats rtcIceCandidatePairMetrics;
+
+    MUTEX signalingSendMessageLock;
 } SampleConfiguration, *PSampleConfiguration;
 
 typedef VOID (*StreamSessionShutdownCallback)(UINT64, PSampleStreamingSession);
@@ -145,18 +149,21 @@ STATUS lookForSslCert(PSampleConfiguration*);
 STATUS createSampleStreamingSession(PSampleConfiguration, PCHAR, BOOL, PSampleStreamingSession*);
 STATUS freeSampleStreamingSession(PSampleStreamingSession*);
 STATUS streamingSessionOnShutdown(PSampleStreamingSession, UINT64, StreamSessionShutdownCallback);
+STATUS sendSignalingMessage(PSampleStreamingSession, PSignalingMessage);
 STATUS respondWithAnswer(PSampleStreamingSession);
 STATUS resetSampleConfigurationState(PSampleConfiguration);
 VOID sampleFrameHandler(UINT64, PFrame);
 VOID sampleBandwidthEstimationHandler(UINT64, DOUBLE);
+#ifdef ENABLE_DATA_CHANNEL
 VOID onDataChannel(UINT64, PRtcDataChannel);
+#endif
 VOID onConnectionStateChange(UINT64, RTC_PEER_CONNECTION_STATE);
 STATUS sessionCleanupWait(PSampleConfiguration);
 STATUS awaitGetIceConfigInfoCount(SIGNALING_CLIENT_HANDLE, PUINT32);
 STATUS logSignalingClientStats(PSignalingClientMetrics);
 STATUS logSelectedIceCandidatesInformation(PSampleStreamingSession);
 STATUS logStartUpLatency(PSampleConfiguration);
-
+INT32 kvsWebRTCClientMaster(void);
 #ifdef __cplusplus
 }
 #endif

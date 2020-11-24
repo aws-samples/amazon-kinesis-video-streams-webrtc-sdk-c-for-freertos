@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := wifi_station
+PROJECT_NAME := webrtc_example
 
 include $(IDF_PATH)/make/project.mk
 

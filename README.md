@@ -1,17 +1,123 @@
-# WiFi station example
+# amazon-kinesis-video-streams-webrtc-sdk-c-for-freertos
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+This project demonstrate how to port [Amazon Kinesis Video WebRTC C SDK](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-c) to FreeRTOS.  It uses the [ESP-Wrover-Kit](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html) as a reference platform.  You may follow the same procedure to port to other hardware platforms.
 
+## Clone projects
 
-## How to use example
+Please git clone this project using the command below.  This will git sub-module all depended submodules under main/lib.
 
-### Configure the project
+```
+git submodule update --init --recursive
+```
+
+## Reference platform
+
+We use [ESP IDF 4.1](https://github.com/espressif/esp-idf/releases/tag/v4.1) and the [ESP-Wrover-Kit](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html) as the reference platform. Please follow the [Espressif instructions](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html) to set up the environment. 
+
+ There are two modifications you need to apply to the ESP IDF.
+
+First, after fetching the esp-idf, please apply the patches located in the patch/esp-idf directory of this project to your IDF installation:
+
+```
+esp-idf$ git am your_demo_path/patch/esp-idf/*
+```
+
+Second, make sure the version of mbedTLS in your IDF installation is [2.16.6](https://github.com/ARMmbed/mbedtls/releases/tag/mbedtls-2.16.6) or later.  We have used [mbedtls-2.16.6](https://github.com/ARMmbed/mbedtls/releases/tag/mbedtls-2.16.6) in this project. 
+
+WebRTC needs the functionality of DTLS-for-SRTP ([RFC5764](https://tools.ietf.org/html/rfc5764)). mbedTLS does not support this specification when this project was created. There is one pull request in mbedTLS ([#3235](https://github.com/ARMmbed/mbedtls/pull/3235#)) in progress for adding that support.  Before mbedTLS adopts that pull request,  we need to apply it on top of mbedTLS 2.16.6.  If your IDF installation has a mbedTLS version lower than 2.16.6, please upgrade it. 
+
+In this project, we have included all patches from the pull request [pr1813-2.16.6](https://gitlab.linphone.org/BC/public/external/mbedtls/tree/pr1813-2.16.6) under the patches/mbedtls directory, therefore you do not need to pull those patches by yourself.  
+
+Apply patches located in the patch/mbedtls directory of this project.
+
+```
+esp-idf/components/mbedtls$ rm -rf mbedtls/
+esp-idf/components/mbedtls$ git clone git@github.com:ARMmbed/mbedtls.git
+esp-idf/components/mbedtls$ cd mbedtls/
+esp-idf/components/mbedtls/mbedtls$ git checkout mbedtls-2.16.6
+esp-idf/components/mbedtls/mbedtls$ git am your_demo_path/patch/mbedtls/*
+```
+
+## Apply patches
+
+Next, patch depended libraries for using with WebRTC.
+
+### [libwebsockets](https://github.com/warmcat/libwebsockets/releases/tag/v4.1.0-rc1)
+
+This project uses v4.1.0-rc1 of libwebsockets. Please apply patches located in patch/libwebsockets directory.
+
+```
+main/lib/libwebsockets$ git am ../../../patch/libwebsockets/*
+```
+
+### [libsrtp](https://github.com/cisco/libsrtp/releases/tag/v2.3.0)
+
+This project uses v2.3.0 of libsrtp.  Please apply patches located in patch/libsrtp directory.
+
+```
+main/lib/libsrtp$ git am ../../../patch/libsrtp/*
+```
+
+### [mbedtls-2.16.6](https://github.com/ARMmbed/mbedtls/releases/tag/mbedtls-2.16.6)
+
+This has been described in the “Reference platform” section above.
+
+### [usrsctp](https://github.com/sctplab/usrsctp/commit/939d48f9632d69bf170c7a84514b312b6b42257d)
+
+The usrsctp library is needed by the data channel feature of WebRTC only.  The library is not included in this project at this point of time. Please check back later for availability.
+
+If you run into problems when "git am" patches, you can use the following commands to resolve the problem. Or try "git am --abort" the process of git am, then "git apply" individual patches sequentially (in the order of the sequence number indicated by the file name).
+
+```
+$git apply --reject ../../../patch/problem-lib/problems.patch
+// fix *.rej
+$git add .
+$git am --continue
+```
+
+## Configure the project
+
+Use menuconfig of ESP IDF to configure the project.
 
 ```
 idf.py menuconfig
 ```
 
-* Set WiFi SSID and WiFi Password and Maximum retry under Example Configuration Options.
+- These parameters under Example Configuration Options must be set.
+
+- - ESP_WIFI_SSID
+  - ESP_WIFI_PASSWORD
+  - ESP_MAXIMUM_RETRY
+  - AWS_ACCESS_KEY_ID
+  - AWS_SECRET_ACCESS_KEY
+  - AWS_DEFAULT_REGION
+  - AWS_KVS_CHANNEL
+  - AWS_KVS_LOG_LEVEL
+
+- The modifications needed by this project can be seen in the sdkconfig file located at the root directory. 
+
+### Video source
+
+This project uses pre-recorded h.264 frame files for video streaming.  Please put the files on a SD card.  The files should look like:
+
+/sdcard/h264SampleFrames/frame-%04d.h264. 
+
+ The “%04d” part of the file name should be replaced by a sequence number of the frame.
+
+Please note that you can not use J-TAG and SD card simultaneously on ESP-Wrover-Kit because they share some pins.
+
+[Generate video source](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-c/blob/master/samples/h264SampleFrames/README.md)
+
+Given a video file videotestsrc,  the following GStreamer command generates video frame files. If you want to reduce the number of video files, please modify related setting in sample code.
+
+
+
+```
+sh
+gst-launch-1.0 videotestsrc pattern=ball num-buffers=1500 ! timeoverlay ! videoconvert ! video/x-raw,format=I420,width=1280,height=720,framerate=5/1 ! queue ! x264enc bframes=0 speed-preset=veryfast bitrate=128 byte-stream=TRUE tune=zerolatency ! video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! multifilesink location="frame-%04d.h264" index=1
+```
+
+
 
 ### Build and Flash
 
@@ -21,90 +127,36 @@ Build the project and flash it to the board, then run monitor tool to view seria
 idf.py -p PORT flash monitor
 ```
 
-(To exit the serial monitor, type ``Ctrl-]``.)
+(To exit the serial monitor, type `Ctrl-]`.)
 
-See the Getting Started Guide for full steps to configure and use ESP-IDF to build projects.
+See the Getting Started Guide of ESP IDF for full steps to configure and use ESP-IDF to build projects.
 
-## Example Output
-Note that the output, in particular the order of the output, may vary depending on the environment.
+### RTOS-specific changes
 
-Console output if station connects to AP successfully:
+The original WebRTC C SDK written for Linux used stack memory in many places.  When porting the SDK to RTOS, we have changed some of those to use the heap.  In this project, the maximum stack consumption is 20KB.  We’ve set several specific parameters in WebRTC in order to reduce runtime memory consumption. 
+
 ```
-I (589) wifi station: ESP_WIFI_MODE_STA
-I (599) wifi: wifi driver task: 3ffc08b4, prio:23, stack:3584, core=0
-I (599) system_api: Base MAC address is not set, read default base MAC address from BLK0 of EFUSE
-I (599) system_api: Base MAC address is not set, read default base MAC address from BLK0 of EFUSE
-I (629) wifi: wifi firmware version: 2d94f02
-I (629) wifi: config NVS flash: enabled
-I (629) wifi: config nano formating: disabled
-I (629) wifi: Init dynamic tx buffer num: 32
-I (629) wifi: Init data frame dynamic rx buffer num: 32
-I (639) wifi: Init management frame dynamic rx buffer num: 32
-I (639) wifi: Init management short buffer num: 32
-I (649) wifi: Init static rx buffer size: 1600
-I (649) wifi: Init static rx buffer num: 10
-I (659) wifi: Init dynamic rx buffer num: 32
-I (759) phy: phy_version: 4180, cb3948e, Sep 12 2019, 16:39:13, 0, 0
-I (769) wifi: mode : sta (30:ae:a4:d9:bc:c4)
-I (769) wifi station: wifi_init_sta finished.
-I (889) wifi: new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1
-I (889) wifi: state: init -> auth (b0)
-I (899) wifi: state: auth -> assoc (0)
-I (909) wifi: state: assoc -> run (10)
-I (939) wifi: connected with #!/bin/test, aid = 1, channel 6, BW20, bssid = ac:9e:17:7e:31:40
-I (939) wifi: security type: 3, phy: bgn, rssi: -68
-I (949) wifi: pm start, type: 1
-
-I (1029) wifi: AP's beacon interval = 102400 us, DTIM period = 3
-I (2089) esp_netif_handlers: sta ip: 192.168.77.89, mask: 255.255.255.0, gw: 192.168.77.1
-I (2089) wifi station: got ip:192.168.77.89
-I (2089) wifi station: connected to ap SSID:myssid password:mypassword
+MAX_SESSION_DESCRIPTION_INIT_SDP_LEN
+MAX_MEDIA_STREAM_ID_LEN
+ICE_HASH_TABLE_BUCKET_COUNT
+MAX_UPDATE_VERSION_LEN
+MAX_ARN_LEN
+MAX_URI_CHAR_LEN
+MAX_PATH_LEN
+DEFAULT_TIMER_QUEUE_TIMER_COUNT
 ```
 
-Console output if the station failed to connect to AP:
-```
-I (589) wifi station: ESP_WIFI_MODE_STA
-I (599) wifi: wifi driver task: 3ffc08b4, prio:23, stack:3584, core=0
-I (599) system_api: Base MAC address is not set, read default base MAC address from BLK0 of EFUSE
-I (599) system_api: Base MAC address is not set, read default base MAC address from BLK0 of EFUSE
-I (629) wifi: wifi firmware version: 2d94f02
-I (629) wifi: config NVS flash: enabled
-I (629) wifi: config nano formating: disabled
-I (629) wifi: Init dynamic tx buffer num: 32
-I (629) wifi: Init data frame dynamic rx buffer num: 32
-I (639) wifi: Init management frame dynamic rx buffer num: 32
-I (639) wifi: Init management short buffer num: 32
-I (649) wifi: Init static rx buffer size: 1600
-I (649) wifi: Init static rx buffer num: 10
-I (659) wifi: Init dynamic rx buffer num: 32
-I (759) phy: phy_version: 4180, cb3948e, Sep 12 2019, 16:39:13, 0, 0
-I (759) wifi: mode : sta (30:ae:a4:d9:bc:c4)
-I (769) wifi station: wifi_init_sta finished.
-I (889) wifi: new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1
-I (889) wifi: state: init -> auth (b0)
-I (1889) wifi: state: auth -> init (200)
-I (1889) wifi: new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1
-I (1889) wifi station: retry to connect to the AP
-I (1899) wifi station: connect to the AP fail
-I (3949) wifi station: retry to connect to the AP
-I (3949) wifi station: connect to the AP fail
-I (4069) wifi: new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1
-I (4069) wifi: state: init -> auth (b0)
-I (5069) wifi: state: auth -> init (200)
-I (5069) wifi: new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1
-I (5069) wifi station: retry to connect to the AP
-I (5069) wifi station: connect to the AP fail
-I (7129) wifi station: retry to connect to the AP
-I (7129) wifi station: connect to the AP fail
-I (7249) wifi: new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1
-I (7249) wifi: state: init -> auth (b0)
-I (8249) wifi: state: auth -> init (200)
-I (8249) wifi: new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1
-I (8249) wifi station: retry to connect to the AP
-I (8249) wifi station: connect to the AP fail
-I (10299) wifi station: connect to the AP fail
-I (10299) wifi station: Failed to connect to SSID:myssid, password:mypassword
-```
+### Known limitations and issues
+
+This project does not use audio at this point of time. When running on the ESP-Wrover-Kit, this project can only run at low frame rate and low bit rate.  
+
+The current implementation does not support data channel. Please check back later for availability of the data channel feature.
+
+**[The m-line mismatch](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-c/issues/803)**
+
+When using the [WebRTC SDK Test Page](https://awslabs.github.io/amazon-kinesis-video-streams-webrtc-sdk-js/examples/index.html) to validate the demo, you may get m-line mismatch errors.  Different browsers have different behaviors.  To work around such errors, you need to run the [sample](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-js/#Development) in [amazon-kinesis-video-streams-webrtc-sdk-js](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-js), and disable audio functionality of audio. This patch disables the audio functionality.  A later release of this project may eliminate the need for this.
+
+patch/amazon-kinesis-video-streams-webrtc-sdk-js/0001-diable-offerToReceiveAudio.patch`
 
 ## Security
 

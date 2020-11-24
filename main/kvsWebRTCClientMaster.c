@@ -3,8 +3,10 @@
 extern PSampleConfiguration gSampleConfiguration;
 
 // #define VERBOSE
-
-INT32 main(INT32 argc, CHAR* argv[])
+/**
+ * @brief the main function of this sample.
+*/
+INT32 kvsWebRTCClientMaster(void)
 {
     STATUS retStatus = STATUS_SUCCESS;
     UINT32 frameSize;
@@ -13,19 +15,19 @@ INT32 main(INT32 argc, CHAR* argv[])
     signalingClientMetrics.version = 0;
 
 #ifndef _WIN32
-    signal(SIGINT, sigintHandler);
+    //signal(SIGINT, sigintHandler);
 #endif
 
     // do trickleIce by default
     printf("[KVS Master] Using trickleICE by default\n");
     retStatus =
-        createSampleConfiguration(argc > 1 ? argv[1] : SAMPLE_CHANNEL_NAME, SIGNALING_CHANNEL_ROLE_TYPE_MASTER, TRUE, TRUE, &pSampleConfiguration);
+        createSampleConfiguration(SAMPLE_CHANNEL_NAME, SIGNALING_CHANNEL_ROLE_TYPE_MASTER, TRUE, TRUE, &pSampleConfiguration);
     if (retStatus != STATUS_SUCCESS) {
         printf("[KVS Master] createSampleConfiguration(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
     }
 
-    printf("[KVS Master] Created signaling channel %s\n", (argc > 1 ? argv[1] : SAMPLE_CHANNEL_NAME));
+    printf("[KVS Master] Created signaling channel %s\n", SAMPLE_CHANNEL_NAME);
 
     if (pSampleConfiguration->enableFileLogging) {
         retStatus =
@@ -37,28 +39,41 @@ INT32 main(INT32 argc, CHAR* argv[])
     }
 
     // Set the audio and video handlers
+    #if 0
     pSampleConfiguration->audioSource = sendAudioPackets;
+    #endif
+    #if 1
     pSampleConfiguration->videoSource = sendVideoPackets;
+    #endif
+    #if 0
     pSampleConfiguration->receiveAudioVideoSource = sampleReceiveVideoFrame;
+    #endif
+    #if 0
     pSampleConfiguration->onDataChannel = onDataChannel;
-    pSampleConfiguration->mediaType = SAMPLE_STREAMING_AUDIO_VIDEO;
+    #endif
+    //pSampleConfiguration->mediaType = SAMPLE_STREAMING_AUDIO_VIDEO;
+    pSampleConfiguration->mediaType = SAMPLE_STREAMING_VIDEO_ONLY;
+    
     printf("[KVS Master] Finished setting audio and video handlers\n");
 
-    // Check if the samples are present
-
-    retStatus = readFrameFromDisk(NULL, &frameSize, "./h264SampleFrames/frame-0001.h264");
+    // Check if the samples are present, #YC_TBD, move to another place, or remove it.
+    #if 1
+    retStatus = readFrameFromDisk(NULL, &frameSize, "/sdcard/h264SampleFrames/frame-0001.h264");
     if (retStatus != STATUS_SUCCESS) {
         printf("[KVS Master] readFrameFromDisk(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
     }
     printf("[KVS Master] Checked sample video frame availability....available\n");
-
+    #endif
+    #if 0
     retStatus = readFrameFromDisk(NULL, &frameSize, "./opusSampleFrames/sample-001.opus");
     if (retStatus != STATUS_SUCCESS) {
         printf("[KVS Master] readFrameFromDisk(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
     }
     printf("[KVS Master] Checked sample audio frame availability....available\n");
+    #endif
+    
 
     // Initialize KVS WebRTC. This must be done before anything else, and must only be done once.
     retStatus = initKvsWebRtc();
@@ -91,7 +106,7 @@ INT32 main(INT32 argc, CHAR* argv[])
 
     gSampleConfiguration = pSampleConfiguration;
 
-    printf("[KVS Master] Channel %s set up done \n", (argc > 1 ? argv[1] : SAMPLE_CHANNEL_NAME));
+    printf("[KVS Master] Channel %s set up done \n", SAMPLE_CHANNEL_NAME);
 
     // Checking for termination
     retStatus = sessionCleanupWait(pSampleConfiguration);
@@ -202,10 +217,18 @@ PVOID sendVideoPackets(PVOID args)
     frame.presentationTs = 0;
     startTime = GETTIME();
     lastFrameTime = startTime;
+    pSampleConfiguration->pVideoFrameBuffer = (PBYTE) MEMALLOC(7*1024);
+    pSampleConfiguration->videoBufferSize = 7*1024;
+
+    if (pSampleConfiguration->pVideoFrameBuffer == NULL) {
+        printf("[KVS Master] Video frame Buffer reallocation failed...%s (code %d)\n", strerror(errno), errno);
+        printf("[KVS Master] realloc(): operation returned status code: 0x%08x \n", STATUS_NOT_ENOUGH_MEMORY);
+        goto CleanUp;
+    }
 
     while (!ATOMIC_LOAD_BOOL(&pSampleConfiguration->appTerminateFlag)) {
         fileIndex = fileIndex % NUMBER_OF_H264_FRAME_FILES + 1;
-        snprintf(filePath, MAX_PATH_LEN, "./h264SampleFrames/frame-%04d.h264", fileIndex);
+        snprintf(filePath, MAX_PATH_LEN, "/sdcard/h264SampleFrames/frame-%04d.h264", fileIndex);
 
         retStatus = readFrameFromDisk(NULL, &frameSize, filePath);
         if (retStatus != STATUS_SUCCESS) {
@@ -215,14 +238,7 @@ PVOID sendVideoPackets(PVOID args)
 
         // Re-alloc if needed
         if (frameSize > pSampleConfiguration->videoBufferSize) {
-            pSampleConfiguration->pVideoFrameBuffer = (PBYTE) realloc(pSampleConfiguration->pVideoFrameBuffer, frameSize);
-            if (pSampleConfiguration->pVideoFrameBuffer == NULL) {
-                printf("[KVS Master] Video frame Buffer reallocation failed...%s (code %d)\n", strerror(errno), errno);
-                printf("[KVS Master] realloc(): operation returned status code: 0x%08x \n", STATUS_NOT_ENOUGH_MEMORY);
-                goto CleanUp;
-            }
-
-            pSampleConfiguration->videoBufferSize = frameSize;
+            printf("[KVS Master] Video frame Buffer reallocation failed...overflow\n");
         }
 
         frame.frameData = pSampleConfiguration->pVideoFrameBuffer;

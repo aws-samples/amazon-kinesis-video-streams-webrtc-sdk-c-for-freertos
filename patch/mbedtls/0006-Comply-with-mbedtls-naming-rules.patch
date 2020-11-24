@@ -1,0 +1,145 @@
+From 25816b1f472042f8549a3e2bb3a9e59a6ca287a4 Mon Sep 17 00:00:00 2001
+From: Johan Pascal <johan.pascal@belledonne-communications.com>
+Date: Thu, 9 Feb 2017 09:56:05 +0700
+Subject: [PATCH 06/43] Comply with mbedtls naming rules
+
+---
+ include/mbedtls/ssl.h      | 14 ++++++++------
+ library/ssl_cli.c          |  2 +-
+ library/ssl_srv.c          |  2 +-
+ library/ssl_tls.c          |  6 +++---
+ library/version_features.c |  3 +++
+ 5 files changed, 16 insertions(+), 11 deletions(-)
+
+diff --git a/include/mbedtls/ssl.h b/include/mbedtls/ssl.h
+index 6eea30ebb..f8028c8f6 100644
+--- a/include/mbedtls/ssl.h
++++ b/include/mbedtls/ssl.h
+@@ -797,13 +797,15 @@ typedef void mbedtls_ssl_async_cancel_t( mbedtls_ssl_context *ssl );
+ /*
+  * List of SRTP profiles for DTLS-SRTP
+  */
+-enum mbedtls_DTLS_SRTP_protection_profiles {
++typedef enum
++{
+     MBEDTLS_SRTP_UNSET_PROFILE,
+     MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80,
+     MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32,
+     MBEDTLS_SRTP_NULL_HMAC_SHA1_80,
+     MBEDTLS_SRTP_NULL_HMAC_SHA1_32,
+-};
++}
++mbedtls_dtls_srtp_protection_profiles;
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
+ 
+ /*
+@@ -968,7 +970,7 @@ struct mbedtls_ssl_config
+     /*
+      * use_srtp extension
+      */
+-    enum mbedtls_DTLS_SRTP_protection_profiles *dtls_srtp_profiles_list; /*!< ordered list of supported srtp profile */
++    mbedtls_dtls_srtp_protection_profiles *dtls_srtp_profiles_list; /*!< ordered list of supported srtp profile */
+     size_t dtls_srtp_profiles_list_len; /*!< number of supported profiles */
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
+ 
+@@ -1192,7 +1194,7 @@ struct mbedtls_ssl_context
+     /*
+      * use_srtp extension
+      */
+-    enum mbedtls_DTLS_SRTP_protection_profiles chosen_dtls_srtp_profile; /*!< negotiated SRTP profile */
++    mbedtls_dtls_srtp_protection_profiles chosen_dtls_srtp_profile; /*!< negotiated SRTP profile */
+     unsigned char *dtls_srtp_keys; /*!< master keys and master salt for SRTP generated during handshake */
+     size_t dtls_srtp_keys_len; /*!< length in bytes of master keys and master salt for SRTP generated during handshake */
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
+@@ -2457,7 +2459,7 @@ const char *mbedtls_ssl_get_alpn_protocol( const mbedtls_ssl_context *ssl );
+  *
+  * \return         0 on success, or MBEDTLS_ERR_SSL_BAD_INPUT_DATA.
+  */
+-int mbedtls_ssl_conf_dtls_srtp_protection_profiles( mbedtls_ssl_config *conf, const enum mbedtls_DTLS_SRTP_protection_profiles *profiles, size_t profiles_number);
++int mbedtls_ssl_conf_dtls_srtp_protection_profiles( mbedtls_ssl_config *conf, const mbedtls_dtls_srtp_protection_profiles *profiles, size_t profiles_number);
+ 
+ /**
+  * \brief          Get the negotiated DTLS-SRTP Protection Profile.
+@@ -2468,7 +2470,7 @@ int mbedtls_ssl_conf_dtls_srtp_protection_profiles( mbedtls_ssl_config *conf, co
+  *
+  * \return         Protection Profile enum member, MBEDTLS_SRTP_UNSET_PROFILE if no protocol was negotiated.
+  */
+-enum mbedtls_DTLS_SRTP_protection_profiles mbedtls_ssl_get_dtls_srtp_protection_profile( const mbedtls_ssl_context *ssl);
++mbedtls_dtls_srtp_protection_profiles mbedtls_ssl_get_dtls_srtp_protection_profile( const mbedtls_ssl_context *ssl);
+ 
+ /**
+  * \brief                  Get the generated DTLS-SRTP key material.
+diff --git a/library/ssl_cli.c b/library/ssl_cli.c
+index 950a214c0..e6d1e3768 100644
+--- a/library/ssl_cli.c
++++ b/library/ssl_cli.c
+@@ -1487,7 +1487,7 @@ static int ssl_parse_alpn_ext( mbedtls_ssl_context *ssl,
+ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+                                const unsigned char *buf, size_t len )
+ {
+-    enum mbedtls_DTLS_SRTP_protection_profiles server_protection = MBEDTLS_SRTP_UNSET_PROFILE;
++    mbedtls_dtls_srtp_protection_profiles server_protection = MBEDTLS_SRTP_UNSET_PROFILE;
+     size_t i;
+     uint16_t server_protection_profile_value = 0;
+ 
+diff --git a/library/ssl_srv.c b/library/ssl_srv.c
+index 00518a021..a52e12700 100644
+--- a/library/ssl_srv.c
++++ b/library/ssl_srv.c
+@@ -671,7 +671,7 @@ static int ssl_parse_alpn_ext( mbedtls_ssl_context *ssl,
+ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+                                const unsigned char *buf, size_t len )
+ {
+-    enum mbedtls_DTLS_SRTP_protection_profiles client_protection = MBEDTLS_SRTP_UNSET_PROFILE;
++    mbedtls_dtls_srtp_protection_profiles client_protection = MBEDTLS_SRTP_UNSET_PROFILE;
+     size_t i,j;
+     uint16_t profile_length;
+ 
+diff --git a/library/ssl_tls.c b/library/ssl_tls.c
+index 6f26afb45..8285d1f2f 100644
+--- a/library/ssl_tls.c
++++ b/library/ssl_tls.c
+@@ -7635,7 +7635,7 @@ const char *mbedtls_ssl_get_alpn_protocol( const mbedtls_ssl_context *ssl )
+ #endif /* MBEDTLS_SSL_ALPN */
+ 
+ #if defined(MBEDTLS_SSL_DTLS_SRTP)
+-int mbedtls_ssl_conf_dtls_srtp_protection_profiles( mbedtls_ssl_config *conf, const enum mbedtls_DTLS_SRTP_protection_profiles *profiles, size_t profiles_number)
++int mbedtls_ssl_conf_dtls_srtp_protection_profiles( mbedtls_ssl_config *conf, const mbedtls_dtls_srtp_protection_profiles *profiles, size_t profiles_number)
+ {
+     size_t i;
+     /* check in put validity : must be a list of profiles from enumeration */
+@@ -7645,7 +7645,7 @@ int mbedtls_ssl_conf_dtls_srtp_protection_profiles( mbedtls_ssl_config *conf, co
+     }
+ 
+     mbedtls_free(conf->dtls_srtp_profiles_list);
+-    conf->dtls_srtp_profiles_list = (enum mbedtls_DTLS_SRTP_protection_profiles *)mbedtls_calloc(1, profiles_number*sizeof(enum mbedtls_DTLS_SRTP_protection_profiles));
++    conf->dtls_srtp_profiles_list = (mbedtls_dtls_srtp_protection_profiles *)mbedtls_calloc(1, profiles_number*sizeof(mbedtls_dtls_srtp_protection_profiles));
+ 
+     for (i=0; i<profiles_number; i++) {
+         switch (profiles[i]) {
+@@ -7669,7 +7669,7 @@ int mbedtls_ssl_conf_dtls_srtp_protection_profiles( mbedtls_ssl_config *conf, co
+     return( 0 );
+ }
+ 
+-enum mbedtls_DTLS_SRTP_protection_profiles mbedtls_ssl_get_dtls_srtp_protection_profile( const mbedtls_ssl_context *ssl)
++mbedtls_dtls_srtp_protection_profiles mbedtls_ssl_get_dtls_srtp_protection_profile( const mbedtls_ssl_context *ssl)
+ {
+     return( ssl->chosen_dtls_srtp_profile);
+ }
+diff --git a/library/version_features.c b/library/version_features.c
+index 3b67b2be8..39dd40cfc 100644
+--- a/library/version_features.c
++++ b/library/version_features.c
+@@ -498,6 +498,9 @@ static const char *features[] = {
+ #if defined(MBEDTLS_SSL_DTLS_HELLO_VERIFY)
+     "MBEDTLS_SSL_DTLS_HELLO_VERIFY",
+ #endif /* MBEDTLS_SSL_DTLS_HELLO_VERIFY */
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++    "MBEDTLS_SSL_DTLS_SRTP",
++#endif /* MBEDTLS_SSL_DTLS_SRTP */
+ #if defined(MBEDTLS_SSL_DTLS_CLIENT_PORT_REUSE)
+     "MBEDTLS_SSL_DTLS_CLIENT_PORT_REUSE",
+ #endif /* MBEDTLS_SSL_DTLS_CLIENT_PORT_REUSE */
+-- 
+2.17.1
+

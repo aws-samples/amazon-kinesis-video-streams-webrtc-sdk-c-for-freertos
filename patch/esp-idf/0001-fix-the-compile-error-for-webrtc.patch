@@ -1,0 +1,83 @@
+From b3f08d88d2a23e357bcadbe9714f8dab821c6a2d Mon Sep 17 00:00:00 2001
+From: ycyang1229 <yc.yang1229@gmail.com>
+Date: Wed, 14 Oct 2020 21:17:51 +0800
+Subject: [PATCH] fix the compile error for webrtc.
+
+---
+ components/esp_rom/include/esp32/rom/ets_sys.h | 8 +++++---
+ components/esp_rom/include/esp32/rom/tjpgd.h   | 3 ++-
+ components/fatfs/src/ff.h                      | 3 +++
+ components/lwip/port/esp32/include/lwipopts.h  | 2 ++
+ 4 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/components/esp_rom/include/esp32/rom/ets_sys.h b/components/esp_rom/include/esp32/rom/ets_sys.h
+index 3485f0d40..bc259f8e1 100644
+--- a/components/esp_rom/include/esp32/rom/ets_sys.h
++++ b/components/esp_rom/include/esp32/rom/ets_sys.h
+@@ -635,14 +635,16 @@ void intr_matrix_set(int cpu_no, uint32_t model_num, uint32_t intr_num);
+ 
+ #define ETS_MEM_BAR() asm volatile ( "" : : : "memory" )
+ 
+-typedef enum {
++enum {
+     OK = 0,
+     FAIL,
+     PENDING,
+     BUSY,
+     CANCEL,
+-} STATUS;
+-
++};
++#ifndef STATUS
++#define STATUS uint32_t
++#endif
+ /**
+   * @}
+   */
+diff --git a/components/esp_rom/include/esp32/rom/tjpgd.h b/components/esp_rom/include/esp32/rom/tjpgd.h
+index 31fbc97cc..f470a78a4 100644
+--- a/components/esp_rom/include/esp32/rom/tjpgd.h
++++ b/components/esp_rom/include/esp32/rom/tjpgd.h
+@@ -30,8 +30,9 @@ typedef unsigned char	BYTE;
+ typedef short			SHORT;
+ typedef unsigned short	USHORT;
+ typedef unsigned short	WORD;
++#ifndef WCHAR
+ typedef unsigned short	WCHAR;
+-
++#endif
+ /* These types must be 32-bit integer */
+ typedef long			LONG;
+ typedef unsigned long	ULONG;
+diff --git a/components/fatfs/src/ff.h b/components/fatfs/src/ff.h
+index d8ebeb833..0212b5ec6 100644
+--- a/components/fatfs/src/ff.h
++++ b/components/fatfs/src/ff.h
+@@ -45,7 +45,10 @@ typedef unsigned __int64 QWORD;
+ typedef unsigned int	UINT;	/* int must be 16-bit or 32-bit */
+ typedef unsigned char	BYTE;	/* char must be 8-bit */
+ typedef uint16_t		WORD;	/* 16-bit unsigned integer */
++
++#ifndef WCHAR
+ typedef uint16_t		WCHAR;	/* 16-bit unsigned integer */
++#endif
+ typedef uint32_t		DWORD;	/* 32-bit unsigned integer */
+ typedef uint64_t		QWORD;	/* 64-bit unsigned integer */
+ #else  	/* Earlier than C99 */
+diff --git a/components/lwip/port/esp32/include/lwipopts.h b/components/lwip/port/esp32/include/lwipopts.h
+index 216da4835..78c18b698 100644
+--- a/components/lwip/port/esp32/include/lwipopts.h
++++ b/components/lwip/port/esp32/include/lwipopts.h
+@@ -64,7 +64,9 @@
+  * MEMCPY: override this if you have a faster implementation at hand than the
+  * one included in your C library
+  */
++#ifndef MEMCPY
+ #define MEMCPY(dst,src,len)             memcpy(dst,src,len)
++#endif
+ 
+ /**
+  * SMEMCPY: override this with care! Some compilers (e.g. gcc) can inline a
+-- 
+2.20.1 (Apple Git-117)
+

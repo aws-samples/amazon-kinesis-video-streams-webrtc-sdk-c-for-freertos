@@ -11,7 +11,7 @@ VOID sigintHandler(INT32 sigNum)
         CVAR_BROADCAST(gSampleConfiguration->cvar);
     }
 }
-
+#ifdef ENABLE_DATA_CHANNEL
 VOID onDataChannelMessage(UINT64 customData, PRtcDataChannel pDataChannel, BOOL isBinary, PBYTE pMessage, UINT32 pMessageLen)
 {
     UNUSED_PARAM(customData);
@@ -22,13 +22,12 @@ VOID onDataChannelMessage(UINT64 customData, PRtcDataChannel pDataChannel, BOOL 
         DLOGI("DataChannel String Message: %.*s\n", pMessageLen, pMessage);
     }
 }
-
 VOID onDataChannel(UINT64 customData, PRtcDataChannel pRtcDataChannel)
 {
     DLOGI("New DataChannel has been opened %s \n", pRtcDataChannel->name);
     dataChannelOnMessage(pRtcDataChannel, customData, onDataChannelMessage);
 }
-
+#endif
 VOID onConnectionStateChange(UINT64 customData, RTC_PEER_CONNECTION_STATE newState)
 {
     PSampleStreamingSession pSampleStreamingSession = (PSampleStreamingSession) customData;
@@ -79,27 +78,30 @@ STATUS logSelectedIceCandidatesInformation(PSampleStreamingSession pSampleStream
 {
     ENTERS();
     STATUS retStatus = STATUS_SUCCESS;
-    RtcStats rtcMetrics;
+    PRtcStats pRtcMetrics = NULL;
+
+    CHK(NULL != (pRtcMetrics = (PRtcStats) MEMALLOC(SIZEOF(RtcStats))), STATUS_NOT_ENOUGH_MEMORY);
 
     CHK(pSampleStreamingSession != NULL, STATUS_NULL_ARG);
-    rtcMetrics.requestedTypeOfStats = RTC_STATS_TYPE_LOCAL_CANDIDATE;
-    CHK_STATUS(rtcPeerConnectionGetMetrics(pSampleStreamingSession->pPeerConnection, NULL, &rtcMetrics));
-    DLOGD("Local Candidate IP Address: %s", rtcMetrics.rtcStatsObject.localIceCandidateStats.address);
-    DLOGD("Local Candidate type: %s", rtcMetrics.rtcStatsObject.localIceCandidateStats.candidateType);
-    DLOGD("Local Candidate port: %d", rtcMetrics.rtcStatsObject.localIceCandidateStats.port);
-    DLOGD("Local Candidate priority: %d", rtcMetrics.rtcStatsObject.localIceCandidateStats.priority);
-    DLOGD("Local Candidate transport protocol: %s", rtcMetrics.rtcStatsObject.localIceCandidateStats.protocol);
-    DLOGD("Local Candidate relay protocol: %s", rtcMetrics.rtcStatsObject.localIceCandidateStats.relayProtocol);
-    DLOGD("Local Candidate Ice server source: %s", rtcMetrics.rtcStatsObject.localIceCandidateStats.url);
+    pRtcMetrics->requestedTypeOfStats = RTC_STATS_TYPE_LOCAL_CANDIDATE;
+    CHK_STATUS(rtcPeerConnectionGetMetrics(pSampleStreamingSession->pPeerConnection, NULL, pRtcMetrics));
+    DLOGD("Local Candidate IP Address: %s", pRtcMetrics->rtcStatsObject.localIceCandidateStats.address);
+    DLOGD("Local Candidate type: %s", pRtcMetrics->rtcStatsObject.localIceCandidateStats.candidateType);
+    DLOGD("Local Candidate port: %d", pRtcMetrics->rtcStatsObject.localIceCandidateStats.port);
+    DLOGD("Local Candidate priority: %d", pRtcMetrics->rtcStatsObject.localIceCandidateStats.priority);
+    DLOGD("Local Candidate transport protocol: %s", pRtcMetrics->rtcStatsObject.localIceCandidateStats.protocol);
+    DLOGD("Local Candidate relay protocol: %s", pRtcMetrics->rtcStatsObject.localIceCandidateStats.relayProtocol);
+    DLOGD("Local Candidate Ice server source: %s", pRtcMetrics->rtcStatsObject.localIceCandidateStats.url);
 
-    rtcMetrics.requestedTypeOfStats = RTC_STATS_TYPE_REMOTE_CANDIDATE;
-    CHK_STATUS(rtcPeerConnectionGetMetrics(pSampleStreamingSession->pPeerConnection, NULL, &rtcMetrics));
-    DLOGD("Remote Candidate IP Address: %s", rtcMetrics.rtcStatsObject.remoteIceCandidateStats.address);
-    DLOGD("Remote Candidate type: %s", rtcMetrics.rtcStatsObject.localIceCandidateStats.candidateType);
-    DLOGD("Remote Candidate port: %d", rtcMetrics.rtcStatsObject.remoteIceCandidateStats.port);
-    DLOGD("Remote Candidate priority: %d", rtcMetrics.rtcStatsObject.remoteIceCandidateStats.priority);
-    DLOGD("Remote Candidate transport protocol: %s", rtcMetrics.rtcStatsObject.remoteIceCandidateStats.protocol);
+    pRtcMetrics->requestedTypeOfStats = RTC_STATS_TYPE_REMOTE_CANDIDATE;
+    CHK_STATUS(rtcPeerConnectionGetMetrics(pSampleStreamingSession->pPeerConnection, NULL, pRtcMetrics));
+    DLOGD("Remote Candidate IP Address: %s", pRtcMetrics->rtcStatsObject.remoteIceCandidateStats.address);
+    DLOGD("Remote Candidate type: %s", pRtcMetrics->rtcStatsObject.localIceCandidateStats.candidateType);
+    DLOGD("Remote Candidate port: %d", pRtcMetrics->rtcStatsObject.remoteIceCandidateStats.port);
+    DLOGD("Remote Candidate priority: %d", pRtcMetrics->rtcStatsObject.remoteIceCandidateStats.priority);
+    DLOGD("Remote Candidate transport protocol: %s", pRtcMetrics->rtcStatsObject.remoteIceCandidateStats.protocol);
 CleanUp:
+    SAFE_MEMFREE(pRtcMetrics);
     LEAVES();
     return retStatus;
 }
@@ -108,33 +110,37 @@ STATUS handleAnswer(PSampleConfiguration pSampleConfiguration, PSampleStreamingS
 {
     UNUSED_PARAM(pSampleConfiguration);
     STATUS retStatus = STATUS_SUCCESS;
-    RtcSessionDescriptionInit answerSessionDescriptionInit;
+    PRtcSessionDescriptionInit pAnswerSessionDescriptionInit = NULL;
 
-    MEMSET(&answerSessionDescriptionInit, 0x00, SIZEOF(RtcSessionDescriptionInit));
+    CHK(NULL != (pAnswerSessionDescriptionInit = (PRtcSessionDescriptionInit) MEMALLOC(SIZEOF(RtcSessionDescriptionInit))), STATUS_NOT_ENOUGH_MEMORY);
 
-    CHK_STATUS(deserializeSessionDescriptionInit(pSignalingMessage->payload, pSignalingMessage->payloadLen, &answerSessionDescriptionInit));
-    CHK_STATUS(setRemoteDescription(pSampleStreamingSession->pPeerConnection, &answerSessionDescriptionInit));
+    MEMSET(pAnswerSessionDescriptionInit, 0x00, SIZEOF(RtcSessionDescriptionInit));
+
+    CHK_STATUS(deserializeSessionDescriptionInit(pSignalingMessage->payload, pSignalingMessage->payloadLen, pAnswerSessionDescriptionInit));
+    CHK_STATUS(setRemoteDescription(pSampleStreamingSession->pPeerConnection, pAnswerSessionDescriptionInit));
 
 CleanUp:
 
     CHK_LOG_ERR(retStatus);
-
+    SAFE_MEMFREE(pAnswerSessionDescriptionInit);
     return retStatus;
 }
 
 STATUS handleOffer(PSampleConfiguration pSampleConfiguration, PSampleStreamingSession pSampleStreamingSession, PSignalingMessage pSignalingMessage)
 {
     STATUS retStatus = STATUS_SUCCESS;
-    RtcSessionDescriptionInit offerSessionDescriptionInit;
+    PRtcSessionDescriptionInit pOfferSessionDescriptionInit = NULL;
     NullableBool canTrickle;
 
     CHK(pSampleConfiguration != NULL && pSignalingMessage != NULL, STATUS_NULL_ARG);
+    
+    CHK(NULL != (pOfferSessionDescriptionInit = (PRtcSessionDescriptionInit) MEMALLOC(SIZEOF(RtcSessionDescriptionInit))), STATUS_NOT_ENOUGH_MEMORY);
 
-    MEMSET(&offerSessionDescriptionInit, 0x00, SIZEOF(RtcSessionDescriptionInit));
+    MEMSET(pOfferSessionDescriptionInit, 0x00, SIZEOF(RtcSessionDescriptionInit));
     MEMSET(&pSampleStreamingSession->answerSessionDescriptionInit, 0x00, SIZEOF(RtcSessionDescriptionInit));
 
-    CHK_STATUS(deserializeSessionDescriptionInit(pSignalingMessage->payload, pSignalingMessage->payloadLen, &offerSessionDescriptionInit));
-    CHK_STATUS(setRemoteDescription(pSampleStreamingSession->pPeerConnection, &offerSessionDescriptionInit));
+    CHK_STATUS(deserializeSessionDescriptionInit(pSignalingMessage->payload, pSignalingMessage->payloadLen, pOfferSessionDescriptionInit));
+    CHK_STATUS(setRemoteDescription(pSampleStreamingSession->pPeerConnection, pOfferSessionDescriptionInit));
     canTrickle = canTrickleIceCandidates(pSampleStreamingSession->pPeerConnection);
     /* cannot be null after setRemoteDescription */
     CHECK(!NULLABLE_CHECK_EMPTY(canTrickle));
@@ -176,31 +182,57 @@ STATUS handleOffer(PSampleConfiguration pSampleConfiguration, PSampleStreamingSe
                       (PVOID) pSampleStreamingSession);
     }
 CleanUp:
-
+    SAFE_MEMFREE(pOfferSessionDescriptionInit);
     CHK_LOG_ERR(retStatus);
 
+    return retStatus;
+}
+
+STATUS sendSignalingMessage(PSampleStreamingSession pSampleStreamingSession, PSignalingMessage pMessage)
+{
+    STATUS retStatus = STATUS_SUCCESS;
+    BOOL locked = FALSE;
+
+    // Validate the input params
+    CHK(pSampleStreamingSession != NULL && pSampleStreamingSession->pSampleConfiguration != NULL && pMessage != NULL, STATUS_NULL_ARG);
+    CHK(IS_VALID_MUTEX_VALUE(pSampleStreamingSession->pSampleConfiguration->signalingSendMessageLock) &&
+            IS_VALID_SIGNALING_CLIENT_HANDLE(pSampleStreamingSession->pSampleConfiguration->signalingClientHandle),
+        STATUS_INVALID_OPERATION);
+
+    MUTEX_LOCK(pSampleStreamingSession->pSampleConfiguration->signalingSendMessageLock);
+    locked = TRUE;
+    CHK_STATUS(signalingClientSendMessageSync(pSampleStreamingSession->pSampleConfiguration->signalingClientHandle, pMessage));
+
+CleanUp:
+
+    if (locked) {
+        MUTEX_UNLOCK(pSampleStreamingSession->pSampleConfiguration->signalingSendMessageLock);
+    }
+
+    CHK_LOG_ERR(retStatus);
     return retStatus;
 }
 
 STATUS respondWithAnswer(PSampleStreamingSession pSampleStreamingSession)
 {
     STATUS retStatus = STATUS_SUCCESS;
-    SignalingMessage message;
-    UINT32 buffLen = 0;
+    PSignalingMessage pMessage = NULL;
+    UINT32 buffLen = MAX_SIGNALING_MESSAGE_LEN;
 
-    CHK_STATUS(serializeSessionDescriptionInit(&pSampleStreamingSession->answerSessionDescriptionInit, NULL, &buffLen));
-    CHK_STATUS(serializeSessionDescriptionInit(&pSampleStreamingSession->answerSessionDescriptionInit, message.payload, &buffLen));
+    CHK(NULL != (pMessage = (PSignalingMessage) MEMALLOC(SIZEOF(SignalingMessage))), STATUS_NOT_ENOUGH_MEMORY);
 
-    message.version = SIGNALING_MESSAGE_CURRENT_VERSION;
-    message.messageType = SIGNALING_MESSAGE_TYPE_ANSWER;
-    STRCPY(message.peerClientId, pSampleStreamingSession->peerId);
-    message.payloadLen = (UINT32) STRLEN(message.payload);
-    message.correlationId[0] = '\0';
+    CHK_STATUS(serializeSessionDescriptionInit(&pSampleStreamingSession->answerSessionDescriptionInit, pMessage->payload, &buffLen));
 
-    retStatus = signalingClientSendMessageSync(pSampleStreamingSession->pSampleConfiguration->signalingClientHandle, &message);
+    pMessage->version = SIGNALING_MESSAGE_CURRENT_VERSION;
+    pMessage->messageType = SIGNALING_MESSAGE_TYPE_ANSWER;
+    STRNCPY(pMessage->peerClientId, pSampleStreamingSession->peerId, MAX_SIGNALING_CLIENT_ID_LEN);
+    pMessage->payloadLen = (UINT32) STRLEN(pMessage->payload);
+    pMessage->correlationId[0] = '\0';
+
+    CHK_STATUS(sendSignalingMessage(pSampleStreamingSession, pMessage));
 
 CleanUp:
-
+    SAFE_MEMFREE(pMessage);
     CHK_LOG_ERR(retStatus);
     return retStatus;
 }
@@ -209,9 +241,10 @@ VOID onIceCandidateHandler(UINT64 customData, PCHAR candidateJson)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PSampleStreamingSession pSampleStreamingSession = (PSampleStreamingSession) customData;
-    SignalingMessage message;
+    PSignalingMessage pMessage = NULL;
 
     CHK(pSampleStreamingSession != NULL, STATUS_NULL_ARG);
+    CHK(NULL != (pMessage = (PSignalingMessage) MEMALLOC(SIZEOF(SignalingMessage))), STATUS_NOT_ENOUGH_MEMORY);
 
     if (candidateJson == NULL) {
         DLOGD("ice candidate gathering finished");
@@ -230,24 +263,24 @@ VOID onIceCandidateHandler(UINT64 customData, PCHAR candidateJson)
         }
 
     } else if (pSampleStreamingSession->remoteCanTrickleIce && ATOMIC_LOAD_BOOL(&pSampleStreamingSession->peerIdReceived)) {
-        message.version = SIGNALING_MESSAGE_CURRENT_VERSION;
-        message.messageType = SIGNALING_MESSAGE_TYPE_ICE_CANDIDATE;
-        STRCPY(message.peerClientId, pSampleStreamingSession->peerId);
-        message.payloadLen = (UINT32) STRLEN(candidateJson);
-        STRCPY(message.payload, candidateJson);
-        message.correlationId[0] = '\0';
-        CHK_STATUS(signalingClientSendMessageSync(pSampleStreamingSession->pSampleConfiguration->signalingClientHandle, &message));
+        pMessage->version = SIGNALING_MESSAGE_CURRENT_VERSION;
+        pMessage->messageType = SIGNALING_MESSAGE_TYPE_ICE_CANDIDATE;
+        STRNCPY(pMessage->peerClientId, pSampleStreamingSession->peerId, MAX_SIGNALING_CLIENT_ID_LEN);
+        pMessage->payloadLen = (UINT32) STRLEN(candidateJson);
+        STRNCPY(pMessage->payload, candidateJson, pMessage->payloadLen);
+        pMessage->correlationId[0] = '\0';
+        CHK_STATUS(sendSignalingMessage(pSampleStreamingSession, pMessage));
     }
 
 CleanUp:
-
+    SAFE_MEMFREE(pMessage);
     CHK_LOG_ERR(retStatus);
 }
 
 STATUS initializePeerConnection(PSampleConfiguration pSampleConfiguration, PRtcPeerConnection* ppRtcPeerConnection)
 {
     STATUS retStatus = STATUS_SUCCESS;
-    RtcConfiguration configuration;
+    PRtcConfiguration pConfiguration = NULL;
     UINT32 i, j, iceConfigCount, uriCount;
     PIceConfigInfo pIceConfigInfo;
     const UINT32 maxTurnServer = 1;
@@ -255,13 +288,14 @@ STATUS initializePeerConnection(PSampleConfiguration pSampleConfiguration, PRtcP
 
     CHK(pSampleConfiguration != NULL && ppRtcPeerConnection != NULL, STATUS_NULL_ARG);
 
-    MEMSET(&configuration, 0x00, SIZEOF(RtcConfiguration));
+    CHK(NULL != (pConfiguration = (PRtcConfiguration) MEMALLOC(SIZEOF(RtcConfiguration))), STATUS_NOT_ENOUGH_MEMORY);
+    MEMSET(pConfiguration, 0x00, SIZEOF(RtcConfiguration));
 
     // Set this to custom callback to enable filtering of interfaces
-    configuration.kvsRtcConfiguration.iceSetInterfaceFilterFunc = NULL;
+    pConfiguration->kvsRtcConfiguration.iceSetInterfaceFilterFunc = NULL;
 
     // Set the  STUN server
-    SNPRINTF(configuration.iceServers[0].urls, MAX_ICE_CONFIG_URI_LEN, KINESIS_VIDEO_STUN_URL, pSampleConfiguration->channelInfo.pRegion);
+    SNPRINTF(pConfiguration->iceServers[0].urls, MAX_ICE_CONFIG_URI_LEN, KINESIS_VIDEO_STUN_URL, pSampleConfiguration->channelInfo.pRegion);
 
     if (pSampleConfiguration->useTurn) {
         // Set the URIs from the configuration
@@ -274,28 +308,28 @@ STATUS initializePeerConnection(PSampleConfiguration pSampleConfiguration, PRtcP
             for (j = 0; j < pIceConfigInfo->uriCount; j++) {
                 CHECK(uriCount < MAX_ICE_SERVERS_COUNT);
                 /*
-                 * if configuration.iceServers[uriCount + 1].urls is "turn:ip:port?transport=udp" then ICE will try TURN over UDP
-                 * if configuration.iceServers[uriCount + 1].urls is "turn:ip:port?transport=tcp" then ICE will try TURN over TCP/TLS
-                 * if configuration.iceServers[uriCount + 1].urls is "turns:ip:port?transport=udp", it's currently ignored because sdk dont do TURN
-                 * over DTLS yet. if configuration.iceServers[uriCount + 1].urls is "turns:ip:port?transport=tcp" then ICE will try TURN over TCP/TLS
-                 * if configuration.iceServers[uriCount + 1].urls is "turn:ip:port" then ICE will try both TURN over UPD and TCP/TLS
+                 * if pConfiguration->iceServers[uriCount + 1].urls is "turn:ip:port?transport=udp" then ICE will try TURN over UDP
+                 * if pConfiguration->iceServers[uriCount + 1].urls is "turn:ip:port?transport=tcp" then ICE will try TURN over TCP/TLS
+                 * if pConfiguration->iceServers[uriCount + 1].urls is "turns:ip:port?transport=udp", it's currently ignored because sdk dont do TURN
+                 * over DTLS yet. if pConfiguration->iceServers[uriCount + 1].urls is "turns:ip:port?transport=tcp" then ICE will try TURN over TCP/TLS
+                 * if pConfiguration->iceServers[uriCount + 1].urls is "turn:ip:port" then ICE will try both TURN over UPD and TCP/TLS
                  *
                  * It's recommended to not pass too many TURN iceServers to configuration because it will slow down ice gathering in non-trickle mode.
                  */
 
-                STRNCPY(configuration.iceServers[uriCount + 1].urls, pIceConfigInfo->uris[j], MAX_ICE_CONFIG_URI_LEN);
-                STRNCPY(configuration.iceServers[uriCount + 1].credential, pIceConfigInfo->password, MAX_ICE_CONFIG_CREDENTIAL_LEN);
-                STRNCPY(configuration.iceServers[uriCount + 1].username, pIceConfigInfo->userName, MAX_ICE_CONFIG_USER_NAME_LEN);
+                STRNCPY(pConfiguration->iceServers[uriCount + 1].urls, pIceConfigInfo->uris[j], MAX_ICE_CONFIG_URI_LEN);
+                STRNCPY(pConfiguration->iceServers[uriCount + 1].credential, pIceConfigInfo->password, MAX_ICE_CONFIG_CREDENTIAL_LEN);
+                STRNCPY(pConfiguration->iceServers[uriCount + 1].username, pIceConfigInfo->userName, MAX_ICE_CONFIG_USER_NAME_LEN);
 
                 uriCount++;
             }
         }
     }
     pSampleConfiguration->iceUriCount = uriCount + 1;
-    CHK_STATUS(createPeerConnection(&configuration, ppRtcPeerConnection));
+    CHK_STATUS(createPeerConnection(pConfiguration, ppRtcPeerConnection));
 
 CleanUp:
-
+    SAFE_MEMFREE(pConfiguration);
     return retStatus;
 }
 
@@ -304,21 +338,25 @@ STATUS gatherIceServerStats(PSampleStreamingSession pSampleStreamingSession)
 {
     ENTERS();
     STATUS retStatus = STATUS_SUCCESS;
-    RtcStats rtcmetrics;
+    PRtcStats pRtcMetrics = NULL;
     UINT32 j = 0;
-    rtcmetrics.requestedTypeOfStats = RTC_STATS_TYPE_ICE_SERVER;
+
+    CHK(NULL != (pRtcMetrics = (PRtcStats) MEMALLOC(SIZEOF(RtcStats))), STATUS_NOT_ENOUGH_MEMORY);
+
+    pRtcMetrics->requestedTypeOfStats = RTC_STATS_TYPE_ICE_SERVER;
     for (; j < pSampleStreamingSession->pSampleConfiguration->iceUriCount; j++) {
-        rtcmetrics.rtcStatsObject.iceServerStats.iceServerIndex = j;
-        CHK_STATUS(rtcPeerConnectionGetMetrics(pSampleStreamingSession->pPeerConnection, NULL, &rtcmetrics));
-        DLOGD("ICE Server URL: %s", rtcmetrics.rtcStatsObject.iceServerStats.url);
-        DLOGD("ICE Server port: %d", rtcmetrics.rtcStatsObject.iceServerStats.port);
-        DLOGD("ICE Server protocol: %s", rtcmetrics.rtcStatsObject.iceServerStats.protocol);
-        DLOGD("Total requests sent:%" PRIu64, rtcmetrics.rtcStatsObject.iceServerStats.totalRequestsSent);
-        DLOGD("Total responses received: %" PRIu64, rtcmetrics.rtcStatsObject.iceServerStats.totalResponsesReceived);
+        pRtcMetrics->rtcStatsObject.iceServerStats.iceServerIndex = j;
+        CHK_STATUS(rtcPeerConnectionGetMetrics(pSampleStreamingSession->pPeerConnection, NULL, pRtcMetrics));
+        DLOGD("ICE Server URL: %s", pRtcMetrics->rtcStatsObject.iceServerStats.url);
+        DLOGD("ICE Server port: %d", pRtcMetrics->rtcStatsObject.iceServerStats.port);
+        DLOGD("ICE Server protocol: %s", pRtcMetrics->rtcStatsObject.iceServerStats.protocol);
+        DLOGD("Total requests sent:%" PRIu64, pRtcMetrics->rtcStatsObject.iceServerStats.totalRequestsSent);
+        DLOGD("Total responses received: %" PRIu64, pRtcMetrics->rtcStatsObject.iceServerStats.totalResponsesReceived);
         DLOGD("Total round trip time: %" PRIu64 "ms",
-              rtcmetrics.rtcStatsObject.iceServerStats.totalRoundTripTime / HUNDREDS_OF_NANOS_IN_A_MILLISECOND);
+              pRtcMetrics->rtcStatsObject.iceServerStats.totalRoundTripTime / HUNDREDS_OF_NANOS_IN_A_MILLISECOND);
     }
 CleanUp:
+    SAFE_MEMFREE(pRtcMetrics);
     LEAVES();
     return retStatus;
 }
@@ -353,18 +391,21 @@ STATUS createSampleStreamingSession(PSampleConfiguration pSampleConfiguration, P
                                     PSampleStreamingSession* ppSampleStreamingSession)
 {
     STATUS retStatus = STATUS_SUCCESS;
-    RtcMediaStreamTrack videoTrack, audioTrack;
+    PRtcMediaStreamTrack pVideoTrack = NULL;
+    PRtcMediaStreamTrack pAudioTrack = NULL;
     PSampleStreamingSession pSampleStreamingSession = NULL;
 
-    MEMSET(&videoTrack, 0x00, SIZEOF(RtcMediaStreamTrack));
-    MEMSET(&audioTrack, 0x00, SIZEOF(RtcMediaStreamTrack));
+    CHK(NULL != (pVideoTrack = (PRtcMediaStreamTrack) MEMALLOC(SIZEOF(RtcMediaStreamTrack))), STATUS_NOT_ENOUGH_MEMORY);
+    CHK(NULL != (pAudioTrack = (PRtcMediaStreamTrack) MEMALLOC(SIZEOF(RtcMediaStreamTrack))), STATUS_NOT_ENOUGH_MEMORY);
+    MEMSET(pVideoTrack, 0x00, SIZEOF(RtcMediaStreamTrack));
+    MEMSET(pAudioTrack, 0x00, SIZEOF(RtcMediaStreamTrack));
 
     CHK(pSampleConfiguration != NULL && ppSampleStreamingSession != NULL, STATUS_NULL_ARG);
     CHK((isMaster && peerId != NULL) || !isMaster, STATUS_INVALID_ARG);
 
     pSampleStreamingSession = (PSampleStreamingSession) MEMCALLOC(1, SIZEOF(SampleStreamingSession));
     CHK(pSampleStreamingSession != NULL, STATUS_NOT_ENOUGH_MEMORY);
-
+    
     if (isMaster) {
         STRCPY(pSampleStreamingSession->peerId, peerId);
     } else {
@@ -375,7 +416,6 @@ STATUS createSampleStreamingSession(PSampleConfiguration pSampleConfiguration, P
     pSampleStreamingSession->pSampleConfiguration = pSampleConfiguration;
     pSampleStreamingSession->rtcMetricsHistory.prevTs = GETTIME();
     pSampleStreamingSession->remoteCanTrickleIce = FALSE;
-
     ATOMIC_STORE_BOOL(&pSampleStreamingSession->terminateFlag, FALSE);
     ATOMIC_STORE_BOOL(&pSampleStreamingSession->candidateGatheringDone, FALSE);
 
@@ -383,31 +423,36 @@ STATUS createSampleStreamingSession(PSampleConfiguration pSampleConfiguration, P
     CHK_STATUS(peerConnectionOnIceCandidate(pSampleStreamingSession->pPeerConnection, (UINT64) pSampleStreamingSession, onIceCandidateHandler));
     CHK_STATUS(
         peerConnectionOnConnectionStateChange(pSampleStreamingSession->pPeerConnection, (UINT64) pSampleStreamingSession, onConnectionStateChange));
+#ifdef ENABLE_DATA_CHANNEL
     if (pSampleConfiguration->onDataChannel != NULL) {
         CHK_STATUS(peerConnectionOnDataChannel(pSampleStreamingSession->pPeerConnection, (UINT64) pSampleStreamingSession,
                                                pSampleConfiguration->onDataChannel));
     }
+#endif
 
     // Declare that we support H264,Profile=42E01F,level-asymmetry-allowed=1,packetization-mode=1 and Opus
-    CHK_STATUS(addSupportedCodec(pSampleStreamingSession->pPeerConnection, RTC_CODEC_H264_PROFILE_42E01F_LEVEL_ASYMMETRY_ALLOWED_PACKETIZATION_MODE));
-    CHK_STATUS(addSupportedCodec(pSampleStreamingSession->pPeerConnection, RTC_CODEC_OPUS));
-
     // Add a SendRecv Transceiver of type video
-    videoTrack.kind = MEDIA_STREAM_TRACK_KIND_VIDEO;
-    videoTrack.codec = RTC_CODEC_H264_PROFILE_42E01F_LEVEL_ASYMMETRY_ALLOWED_PACKETIZATION_MODE;
-    STRCPY(videoTrack.streamId, "myKvsVideoStream");
-    STRCPY(videoTrack.trackId, "myVideoTrack");
-    CHK_STATUS(addTransceiver(pSampleStreamingSession->pPeerConnection, &videoTrack, NULL, &pSampleStreamingSession->pVideoRtcRtpTransceiver));
+    CHK_STATUS(addSupportedCodec(pSampleStreamingSession->pPeerConnection, RTC_CODEC_H264_PROFILE_42E01F_LEVEL_ASYMMETRY_ALLOWED_PACKETIZATION_MODE));
+    pVideoTrack->kind = MEDIA_STREAM_TRACK_KIND_VIDEO;
+    pVideoTrack->codec = RTC_CODEC_H264_PROFILE_42E01F_LEVEL_ASYMMETRY_ALLOWED_PACKETIZATION_MODE;
+    STRCPY(pVideoTrack->streamId, "myKvsVideoStream");
+    STRCPY(pVideoTrack->trackId, "myVideoTrack");
+    RtcRtpTransceiverInit videoRtcRtpTransceiverInit;
+    videoRtcRtpTransceiverInit.direction =  RTC_RTP_TRANSCEIVER_DIRECTION_SENDONLY;
+    CHK_STATUS(addTransceiver(pSampleStreamingSession->pPeerConnection, pVideoTrack, &videoRtcRtpTransceiverInit, &pSampleStreamingSession->pVideoRtcRtpTransceiver));
 
     CHK_STATUS(transceiverOnBandwidthEstimation(pSampleStreamingSession->pVideoRtcRtpTransceiver, (UINT64) pSampleStreamingSession,
                                                 sampleBandwidthEstimationHandler));
 
     // Add a SendRecv Transceiver of type video
-    audioTrack.kind = MEDIA_STREAM_TRACK_KIND_AUDIO;
-    audioTrack.codec = RTC_CODEC_OPUS;
-    STRCPY(audioTrack.streamId, "myKvsVideoStream");
-    STRCPY(audioTrack.trackId, "myAudioTrack");
-    CHK_STATUS(addTransceiver(pSampleStreamingSession->pPeerConnection, &audioTrack, NULL, &pSampleStreamingSession->pAudioRtcRtpTransceiver));
+    CHK_STATUS(addSupportedCodec(pSampleStreamingSession->pPeerConnection, RTC_CODEC_OPUS));
+    pAudioTrack->kind = MEDIA_STREAM_TRACK_KIND_AUDIO;
+    pAudioTrack->codec = RTC_CODEC_OPUS;
+    STRCPY(pAudioTrack->streamId, "myKvsVideoStream");
+    STRCPY(pAudioTrack->trackId, "myAudioTrack");
+    RtcRtpTransceiverInit audioRtcRtpTransceiverInit;
+    audioRtcRtpTransceiverInit.direction =  RTC_RTP_TRANSCEIVER_DIRECTION_SENDONLY;
+    CHK_STATUS(addTransceiver(pSampleStreamingSession->pPeerConnection, pAudioTrack, &audioRtcRtpTransceiverInit, &pSampleStreamingSession->pAudioRtcRtpTransceiver));
 
     CHK_STATUS(transceiverOnBandwidthEstimation(pSampleStreamingSession->pAudioRtcRtpTransceiver, (UINT64) pSampleStreamingSession,
                                                 sampleBandwidthEstimationHandler));
@@ -423,7 +468,8 @@ CleanUp:
     if (ppSampleStreamingSession != NULL) {
         *ppSampleStreamingSession = pSampleStreamingSession;
     }
-
+    SAFE_MEMFREE(pVideoTrack);
+    SAFE_MEMFREE(pAudioTrack);
     return retStatus;
 }
 
@@ -495,14 +541,16 @@ VOID sampleBandwidthEstimationHandler(UINT64 customData, DOUBLE maxiumBitrate)
 STATUS handleRemoteCandidate(PSampleStreamingSession pSampleStreamingSession, PSignalingMessage pSignalingMessage)
 {
     STATUS retStatus = STATUS_SUCCESS;
-    RtcIceCandidateInit iceCandidate;
+    PRtcIceCandidateInit pIceCandidate = NULL;
+    CHK(NULL != (pIceCandidate = (PRtcIceCandidateInit) MEMALLOC(SIZEOF(RtcIceCandidateInit))), STATUS_NOT_ENOUGH_MEMORY);
     CHK(pSampleStreamingSession != NULL && pSignalingMessage != NULL, STATUS_NULL_ARG);
 
-    CHK_STATUS(deserializeRtcIceCandidateInit(pSignalingMessage->payload, pSignalingMessage->payloadLen, &iceCandidate));
-    CHK_STATUS(addIceCandidate(pSampleStreamingSession->pPeerConnection, iceCandidate.candidate));
+    CHK_STATUS(deserializeRtcIceCandidateInit(pSignalingMessage->payload, pSignalingMessage->payloadLen, pIceCandidate));
+    CHK_STATUS(addIceCandidate(pSampleStreamingSession->pPeerConnection, pIceCandidate->candidate));
 
 CleanUp:
 
+    SAFE_MEMFREE(pIceCandidate);
     CHK_LOG_ERR(retStatus);
     return retStatus;
 }
@@ -512,14 +560,14 @@ STATUS traverseDirectoryPEMFileScan(UINT64 customData, DIR_ENTRY_TYPES entryType
     UNUSED_PARAM(entryType);
     UNUSED_PARAM(fullPath);
 
-    PCHAR certName = (PCHAR) customData;
+    PCHAR pCertName = (PCHAR) customData;
     UINT32 fileNameLen = STRLEN(fileName);
 
     if (fileNameLen > ARRAY_SIZE(CA_CERT_PEM_FILE_EXTENSION) + 1 &&
         (STRCMPI(CA_CERT_PEM_FILE_EXTENSION, &fileName[fileNameLen - ARRAY_SIZE(CA_CERT_PEM_FILE_EXTENSION) + 1]) == 0)) {
-        certName[0] = FPATHSEPARATOR;
-        certName++;
-        STRCPY(certName, fileName);
+        pCertName[0] = FPATHSEPARATOR;
+        pCertName++;
+        STRCPY(pCertName, fileName);
     }
 
     return STATUS_SUCCESS;
@@ -529,11 +577,16 @@ STATUS lookForSslCert(PSampleConfiguration* ppSampleConfiguration)
 {
     STATUS retStatus = STATUS_SUCCESS;
     struct stat pathStat;
-    CHAR certName[MAX_PATH_LEN];
+    PCHAR pCertName = NULL;
     PSampleConfiguration pSampleConfiguration = *ppSampleConfiguration;
 
-    MEMSET(certName, 0x0, ARRAY_SIZE(certName));
+    CHK(NULL != (pCertName = (PCHAR) MEMALLOC(MAX_PATH_LEN)), STATUS_NOT_ENOUGH_MEMORY);
+    MEMSET(pCertName, 0x0, MAX_PATH_LEN);
+#ifdef KVSWEBRTC_HAVE_GETENV
     pSampleConfiguration->pCaCertPath = getenv(CACERT_PATH_ENV_VAR);
+#else
+    pSampleConfiguration->pCaCertPath = NULL;
+#endif
 
     // if ca cert path is not set from the environment, try to use the one that cmake detected
     if (pSampleConfiguration->pCaCertPath == NULL) {
@@ -544,10 +597,10 @@ STATUS lookForSslCert(PSampleConfiguration* ppSampleConfiguration)
         CHK(0 == FSTAT(pSampleConfiguration->pCaCertPath, &pathStat), STATUS_DIRECTORY_ENTRY_STAT_ERROR);
 
         if (S_ISDIR(pathStat.st_mode)) {
-            CHK_STATUS(traverseDirectory(pSampleConfiguration->pCaCertPath, (UINT64) &certName, /* iterate */ FALSE, traverseDirectoryPEMFileScan));
+            CHK_STATUS(traverseDirectory(pSampleConfiguration->pCaCertPath, (UINT64) pCertName, /* iterate */ FALSE, traverseDirectoryPEMFileScan));
 
-            if (certName[0] != 0x0) {
-                STRCAT(pSampleConfiguration->pCaCertPath, certName);
+            if (pCertName[0] != 0x0) {
+                STRCAT(pSampleConfiguration->pCaCertPath, pCertName);
             } else {
                 DLOGW("Cert not found in path set...checking if CMake detected a path\n");
                 CHK_ERR(STRNLEN(DEFAULT_KVS_CACERT_PATH, MAX_PATH_LEN) > 0, STATUS_INVALID_OPERATION, "No ca cert path given (error:%s)",
@@ -559,7 +612,7 @@ STATUS lookForSslCert(PSampleConfiguration* ppSampleConfiguration)
     }
 
 CleanUp:
-
+    SAFE_MEMFREE(pCertName);
     CHK_LOG_ERR(retStatus);
     return retStatus;
 }
@@ -568,7 +621,7 @@ STATUS createSampleConfiguration(PCHAR channelName, SIGNALING_CHANNEL_ROLE_TYPE 
                                  PSampleConfiguration* ppSampleConfiguration)
 {
     STATUS retStatus = STATUS_SUCCESS;
-    PCHAR pAccessKey, pSecretKey, pSessionToken, pLogLevel;
+    PCHAR pAccessKey = NULL, pSecretKey = NULL, pSessionToken = NULL, pLogLevel = NULL;
     PSampleConfiguration pSampleConfiguration = NULL;
     UINT32 logLevel = LOG_LEVEL_DEBUG;
 
@@ -606,6 +659,7 @@ STATUS createSampleConfiguration(PCHAR channelName, SIGNALING_CHANNEL_ROLE_TYPE 
     pSampleConfiguration->sampleConfigurationObjLock = MUTEX_CREATE(TRUE);
     pSampleConfiguration->cvar = CVAR_CREATE();
     pSampleConfiguration->streamingSessionListReadLock = MUTEX_CREATE(FALSE);
+    pSampleConfiguration->signalingSendMessageLock = MUTEX_CREATE(FALSE);
     /* This is ignored for master. Master can extract the info from offer. Viewer has to know if peer can trickle or
      * not ahead of time. */
     pSampleConfiguration->trickleIce = trickleIce;
@@ -618,9 +672,9 @@ STATUS createSampleConfiguration(PCHAR channelName, SIGNALING_CHANNEL_ROLE_TYPE 
     pSampleConfiguration->channelInfo.pTags = NULL;
     pSampleConfiguration->channelInfo.channelType = SIGNALING_CHANNEL_TYPE_SINGLE_MASTER;
     pSampleConfiguration->channelInfo.channelRoleType = roleType;
-    pSampleConfiguration->channelInfo.cachingPolicy = SIGNALING_API_CALL_CACHE_TYPE_FILE;
+    pSampleConfiguration->channelInfo.cachingPolicy = SIGNALING_API_CALL_CACHE_TYPE_NONE;
     pSampleConfiguration->channelInfo.cachingPeriod = SIGNALING_API_CALL_CACHE_TTL_SENTINEL_VALUE;
-    pSampleConfiguration->channelInfo.asyncIceServerConfig = TRUE;
+    pSampleConfiguration->channelInfo.asyncIceServerConfig = FALSE;
     pSampleConfiguration->channelInfo.retry = TRUE;
     pSampleConfiguration->channelInfo.reconnect = TRUE;
     pSampleConfiguration->channelInfo.pCertPath = pSampleConfiguration->pCaCertPath;
@@ -836,6 +890,10 @@ STATUS freeSampleConfiguration(PSampleConfiguration* ppSampleConfiguration)
         MUTEX_FREE(pSampleConfiguration->streamingSessionListReadLock);
     }
 
+    if (IS_VALID_MUTEX_VALUE(pSampleConfiguration->signalingSendMessageLock)) {
+        MUTEX_FREE(pSampleConfiguration->signalingSendMessageLock);
+    }
+
     if (IS_VALID_CVAR_VALUE(pSampleConfiguration->cvar)) {
         CVAR_FREE(pSampleConfiguration->cvar);
     }
@@ -859,7 +917,9 @@ CleanUp:
     LEAVES();
     return retStatus;
 }
-
+/**
+ * @brief the cleanup function of this app_main
+*/
 STATUS sessionCleanupWait(PSampleConfiguration pSampleConfiguration)
 {
     ENTERS();
@@ -963,7 +1023,9 @@ CleanUp:
     CHK_LOG_ERR(retStatus);
     return retStatus;
 }
-
+/**
+ * @brief the handler of sdp messages.
+*/
 STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pReceivedSignalingMessage)
 {
     STATUS retStatus = STATUS_SUCCESS;
@@ -991,6 +1053,7 @@ STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pRe
 
     switch (pReceivedSignalingMessage->signalingMessage.messageType) {
         case SIGNALING_MESSAGE_TYPE_OFFER:
+            DLOGD("offer.");
             /*
              * Create new streaming session for each offer, then insert the client id and streaming session into
              * pRtcPeerConnectionForRemoteClient for subsequent ice candidate messages. Lastly check if there is
@@ -1021,6 +1084,7 @@ STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pRe
             break;
 
         case SIGNALING_MESSAGE_TYPE_ANSWER:
+            DLOGD("answer.");
             /*
              * for viewer, pSampleStreamingSession should've already been created. insert the client id and
              * streaming session into pRtcPeerConnectionForRemoteClient for subsequent ice candidate messages.
@@ -1045,7 +1109,9 @@ STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pRe
              * if peer connection hasn't been created, create an queue to store the ice candidate message. Otherwise
              * submit the signaling message into the corresponding streaming session.
              */
+            
             if (!peerConnectionFound) {
+                DLOGD("queue the ice candidates.");
                 hashValue = 0;
                 if (STATUS_HASH_KEY_NOT_PRESENT ==
                     hashTableGet(pSampleConfiguration->pPendingSignalingMessageForRemoteClient, clientIdHash, &hashValue)) {
@@ -1060,6 +1126,7 @@ STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pRe
 
                 CHK_STATUS(stackQueueEnqueue(pPendingMessageQueue, (UINT64) pReceivedSignalingMessageCopy));
             } else {
+                DLOGD("handle the ice candidates.");
                 CHK_STATUS(handleRemoteCandidate(pSampleStreamingSession, &pReceivedSignalingMessage->signalingMessage));
             }
             break;

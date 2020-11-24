@@ -1,0 +1,29 @@
+From 4e53fe67de88e42f43a7c3c48f34b6908f87751e Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Mon, 10 Dec 2018 15:30:14 +0200
+Subject: [PATCH 32/43] Disable SRTP by default
+
+Disable `MBEDTLS_SSL_DTLS_SRTP` by default in the configuration file.
+---
+ include/mbedtls/config.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/mbedtls/config.h b/include/mbedtls/config.h
+index 44c1d0f61..70a6c86e6 100644
+--- a/include/mbedtls/config.h
++++ b/include/mbedtls/config.h
+@@ -1578,9 +1578,9 @@
+  *
+  * Requires: MBEDTLS_SSL_PROTO_DTLS
+  *
+- * Comment this to disable support for DTLS-SRTP.
++ * Uncomment this to enable support for use_srtp extension.
+  */
+-#define MBEDTLS_SSL_DTLS_SRTP
++//#define MBEDTLS_SSL_DTLS_SRTP
+ 
+ /**
+  * \def MBEDTLS_SSL_DTLS_CLIENT_PORT_REUSE
+-- 
+2.17.1
+

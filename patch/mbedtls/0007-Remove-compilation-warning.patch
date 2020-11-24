@@ -1,0 +1,24 @@
+From 796001c0653f92261449ad4482124c9a0ed5931a Mon Sep 17 00:00:00 2001
+From: Johan Pascal <johan.pascal@belledonne-communications.com>
+Date: Thu, 9 Feb 2017 10:14:09 +0700
+Subject: [PATCH 07/43] Remove compilation warning
+
+---
+ library/ssl_srv.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/library/ssl_srv.c b/library/ssl_srv.c
+index a52e12700..476d653d0 100644
+--- a/library/ssl_srv.c
++++ b/library/ssl_srv.c
+@@ -2456,7 +2456,6 @@ static void ssl_write_use_srtp_ext( mbedtls_ssl_context *ssl,
+         default:
+             *olen = 0;
+             return;
+-            break;
+     }
+ 
+     buf[8] = 0x00; /* unsupported srtp_mki variable length vector set to 0 */
+-- 
+2.17.1
+

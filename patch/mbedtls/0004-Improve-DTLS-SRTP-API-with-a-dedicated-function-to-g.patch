@@ -1,0 +1,67 @@
+From c05c63a66633080768067d249bf9247d67f165a6 Mon Sep 17 00:00:00 2001
+From: Johan Pascal <johan.pascal@belledonne-communications.com>
+Date: Mon, 8 Feb 2016 22:35:41 +0100
+Subject: [PATCH 04/43] Improve DTLS SRTP API with a dedicated function to get
+ generated keys
+
+---
+ include/mbedtls/ssl.h | 16 +++++++++++++++-
+ library/ssl_tls.c     | 13 +++++++++++++
+ 2 files changed, 28 insertions(+), 1 deletion(-)
+
+diff --git a/include/mbedtls/ssl.h b/include/mbedtls/ssl.h
+index be360f50c..2b1f8f947 100644
+--- a/include/mbedtls/ssl.h
++++ b/include/mbedtls/ssl.h
+@@ -2466,9 +2466,23 @@ int mbedtls_ssl_conf_dtls_srtp_protection_profiles( mbedtls_ssl_config *conf, co
+  *
+  * \param ssl      SSL context
+  *
+- * \return         Protection Profile enum member, SRTP_UNSET_PROFILE if no protocol was negotiated.
++ * \return         Protection Profile enum member, MBEDTLS_SRTP_UNSET_PROFILE if no protocol was negotiated.
+  */
+ enum mbedtls_DTLS_SRTP_protection_profiles mbedtls_ssl_get_dtls_srtp_protection_profile( const mbedtls_ssl_context *ssl);
++
++/**
++ * \brief                  Get the generated DTLS-SRTP key material.
++ *                         This function should be called after the handshake is
++ *                         completed. It shall returns 80 bytes of key material generated according to RFC5764
++ *
++ * \param ssl              SSL context
++ * \param key              Buffer to hold the generated key material
++ * \param key_buffer_len   Length in bytes of the key buffer
++ * \param key_len          Actual length of data written in the key buffer
++ *
++ * \return         0 on succes, MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL if the key buffer is too small to hold the generated key
++ */
++int mbedtls_ssl_get_dtls_srtp_key_material( const mbedtls_ssl_context *ssl, unsigned char *key, const size_t key_buffer_len, size_t *key_len );
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
+ 
+ /**
+diff --git a/library/ssl_tls.c b/library/ssl_tls.c
+index ec4d107ab..6f26afb45 100644
+--- a/library/ssl_tls.c
++++ b/library/ssl_tls.c
+@@ -7674,6 +7674,19 @@ enum mbedtls_DTLS_SRTP_protection_profiles mbedtls_ssl_get_dtls_srtp_protection_
+     return( ssl->chosen_dtls_srtp_profile);
+ }
+ 
++int mbedtls_ssl_get_dtls_srtp_key_material( const mbedtls_ssl_context *ssl, unsigned char *key, const size_t key_buffer_len, size_t *key_len ) {
++    *key_len = 0;
++
++    /* check output buffer size */
++    if ( key_buffer_len < ssl->dtls_srtp_keys_len) {
++        return MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL;
++    }
++
++    memcpy( key, ssl->dtls_srtp_keys, ssl->dtls_srtp_keys_len);
++    *key_len = ssl->dtls_srtp_keys_len;
++
++    return 0;
++}
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
+ 
+ void mbedtls_ssl_conf_max_version( mbedtls_ssl_config *conf, int major, int minor )
+-- 
+2.17.1
+

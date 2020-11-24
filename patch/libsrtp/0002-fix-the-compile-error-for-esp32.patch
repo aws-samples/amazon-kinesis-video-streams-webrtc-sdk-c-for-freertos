@@ -1,0 +1,64 @@
+From 1434eeefb2e31ad2ca9db3cc32d37a9f719d5889 Mon Sep 17 00:00:00 2001
+From: ycyang <yc.yang1229@gmail.com>
+Date: Wed, 14 Oct 2020 12:59:33 +0800
+Subject: [PATCH 2/2] fix the compile error for esp32.
+
+---
+ crypto/include/datatypes.h    | 4 ++++
+ crypto/kernel/crypto_kernel.c | 2 +-
+ srtp/srtp.c                   | 2 ++
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/crypto/include/datatypes.h b/crypto/include/datatypes.h
+index 6a588d0..0037968 100644
+--- a/crypto/include/datatypes.h
++++ b/crypto/include/datatypes.h
+@@ -59,8 +59,12 @@
+ #elif defined HAVE_WINSOCK2_H
+ #include <winsock2.h>
+ #else
++#ifdef KVS_PLAT_ESP_FREERTOS
++#include <lwip/def.h>
++#else
+ #error "Platform not recognized"
+ #endif
++#endif
+ 
+ #ifdef __cplusplus
+ extern "C" {
+diff --git a/crypto/kernel/crypto_kernel.c b/crypto/kernel/crypto_kernel.c
+index df6af7d..cba6922 100644
+--- a/crypto/kernel/crypto_kernel.c
++++ b/crypto/kernel/crypto_kernel.c
+@@ -277,7 +277,7 @@ static inline srtp_err_status_t srtp_crypto_kernel_do_load_cipher_type(
+     srtp_cipher_type_id_t id,
+     int replace)
+ {
+-    srtp_kernel_cipher_type_t *ctype, *new_ctype;
++    srtp_kernel_cipher_type_t *ctype, *new_ctype = NULL;
+     srtp_err_status_t status;
+ 
+     /* defensive coding */
+diff --git a/srtp/srtp.c b/srtp/srtp.c
+index b45cee0..eff328f 100644
+--- a/srtp/srtp.c
++++ b/srtp/srtp.c
+@@ -3151,6 +3151,7 @@ srtp_err_status_t srtp_update_stream(srtp_t session,
+  *
+  * The default policy is defined in RFC 3711
+  * (Section 5. Default and mandatory-to-implement Transforms)
++ * https://tools.ietf.org/html/rfc3711#section-5
+  *
+  */
+ 
+@@ -3188,6 +3189,7 @@ void srtp_crypto_policy_set_aes_cm_128_hmac_sha1_32(srtp_crypto_policy_t *p)
+      * corresponds to RFC 4568
+      *
+      * note that this crypto policy is intended for SRTP, but not SRTCP
++     * https://tools.ietf.org/html/rfc4568#section-6.2
+      */
+ 
+     p->cipher_type = SRTP_AES_ICM_128;
+-- 
+2.17.1
+

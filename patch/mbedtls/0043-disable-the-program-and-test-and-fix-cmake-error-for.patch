@@ -1,0 +1,44 @@
+From 41fee3a7d93e9c48867e7dc7390fb6d0381ea040 Mon Sep 17 00:00:00 2001
+From: ycyang <yc.yang1229@gmail.com>
+Date: Tue, 6 Oct 2020 16:36:19 +0800
+Subject: [PATCH 43/43] disable the program and test, and fix cmake error for
+ esp.
+
+---
+ CMakeLists.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index bb8949ee0..9a23529f7 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -8,7 +8,7 @@ endif()
+ option(USE_PKCS11_HELPER_LIBRARY "Build mbed TLS with the pkcs11-helper library." OFF)
+ option(ENABLE_ZLIB_SUPPORT "Build mbed TLS with zlib library." OFF)
+ 
+-option(ENABLE_PROGRAMS "Build mbed TLS programs." ON)
++option(ENABLE_PROGRAMS "Build mbed TLS programs." OFF)
+ 
+ option(UNSAFE_BUILD "Allow unsafe builds. These builds ARE NOT SECURE." OFF)
+ 
+@@ -21,7 +21,7 @@ string(REGEX MATCH "MSVC" CMAKE_COMPILER_IS_MSVC "${CMAKE_C_COMPILER_ID}")
+ if(CMAKE_COMPILER_IS_MSVC)
+     option(ENABLE_TESTING "Build mbed TLS tests." OFF)
+ else()
+-    option(ENABLE_TESTING "Build mbed TLS tests." ON)
++    option(ENABLE_TESTING "Build mbed TLS tests." OFF)
+ endif()
+ 
+ # Warning string - created as a list for compatibility with CMake 2.8
+@@ -180,7 +180,7 @@ endif(CMAKE_BUILD_TYPE STREQUAL "Coverage")
+ 
+ if(LIB_INSTALL_DIR)
+ else()
+-    set(LIB_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR})
++    set(LIB_INSTALL_DIR lib)
+ endif()
+ 
+ include_directories(include/)
+-- 
+2.17.1
+

@@ -1,0 +1,38 @@
+From a6db85d2c3356e583661e83e83387c228f4d0c50 Mon Sep 17 00:00:00 2001
+From: Johan Pascal <johan.pascal@belledonne-communications.com>
+Date: Thu, 9 Feb 2017 08:55:16 +0700
+Subject: [PATCH 05/43] Fix typos in documentation
+
+---
+ include/mbedtls/ssl.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/mbedtls/ssl.h b/include/mbedtls/ssl.h
+index 2b1f8f947..6eea30ebb 100644
+--- a/include/mbedtls/ssl.h
++++ b/include/mbedtls/ssl.h
+@@ -1193,8 +1193,8 @@ struct mbedtls_ssl_context
+      * use_srtp extension
+      */
+     enum mbedtls_DTLS_SRTP_protection_profiles chosen_dtls_srtp_profile; /*!< negotiated SRTP profile */
+-    unsigned char *dtls_srtp_keys; /*<! master keys and master salt for SRTP generated during handshake */
+-    size_t dtls_srtp_keys_len; /*<! length in bytes of master keys and master salt for SRTP generated during handshake */
++    unsigned char *dtls_srtp_keys; /*!< master keys and master salt for SRTP generated during handshake */
++    size_t dtls_srtp_keys_len; /*!< length in bytes of master keys and master salt for SRTP generated during handshake */
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
+ 
+     /*
+@@ -2450,8 +2450,8 @@ const char *mbedtls_ssl_get_alpn_protocol( const mbedtls_ssl_context *ssl );
+ /**
+  * \brief                   Set the supported DTLS-SRTP protection profiles.
+  *
+- * \param ssl               SSL configuration
+- * \param protos            List of supported protection profiles,
++ * \param conf              SSL configuration
++ * \param profiles          List of supported protection profiles,
+  *                          in decreasing preference order.
+  * \param profiles_number   Number of supported profiles.
+  *
+-- 
+2.17.1
+

@@ -1,0 +1,26 @@
+From c30edd6ec1da9e269e5a9598a4acbd4185171e18 Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Sun, 1 Jul 2018 15:27:22 +0300
+Subject: [PATCH 16/43] Fix failure in ssl-opts.sh
+
+Return a debg message that was removed in previous commit,
+Whic is searched in the ssl-opts.sh test.
+---
+ library/ssl_cli.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/library/ssl_cli.c b/library/ssl_cli.c
+index dc474d91b..a8f61a466 100644
+--- a/library/ssl_cli.c
++++ b/library/ssl_cli.c
+@@ -3490,6 +3490,7 @@ static int ssl_write_certificate_verify( mbedtls_ssl_context *ssl )
+         else
+         {
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
++            MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= skip write certificate verify" ) );
+             ssl->state++;
+             return( 0 );
+ #if defined(MBEDTLS_SSL_DTLS_SRTP)
+-- 
+2.17.1
+

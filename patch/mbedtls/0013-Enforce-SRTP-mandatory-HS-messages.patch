@@ -1,0 +1,178 @@
+From a94acbdb3af566ae743ad6561421fcf306a784cc Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Mon, 2 Apr 2018 18:25:16 +0300
+Subject: [PATCH 13/43] Enforce SRTP mandatory HS messages
+
+Enforce CertificateRequest, client and server Certificates, and
+CertificateVerify messages, which are mandatory in DTLS-SRTP,
+as defined in RFC 5764 section 4.1
+---
+ library/ssl_cli.c | 32 +++++++++++++++++++++++++++-----
+ library/ssl_srv.c | 23 +++++++++++++++++++++--
+ library/ssl_tls.c | 37 +++++++++++++++++++++++++++++--------
+ 3 files changed, 77 insertions(+), 15 deletions(-)
+
+diff --git a/library/ssl_cli.c b/library/ssl_cli.c
+index b5c6fc616..dc474d91b 100644
+--- a/library/ssl_cli.c
++++ b/library/ssl_cli.c
+@@ -2945,8 +2945,20 @@ static int ssl_parse_certificate_request( mbedtls_ssl_context *ssl )
+ 
+     if( ssl->client_auth == 0 )
+     {
+-        /* Current message is probably the ServerHelloDone */
+-        ssl->keep_current_message = 1;
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++    /* check if we have a chosen srtp protection profile */
++        if ( ssl->dtls_srtp_info.chosen_dtls_srtp_profile != MBEDTLS_SRTP_UNSET_PROFILE ) {
++            ret = MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE;
++        }
++        else
++        {
++#endif
++            /* MBEDTLS_SSL_DTLS_SRTP */
++            /* Current message is probably the ServerHelloDone */
++            ssl->keep_current_message = 1;
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++        }
++#endif
+         goto exit;
+     }
+ 
+@@ -3470,9 +3482,19 @@ static int ssl_write_certificate_verify( mbedtls_ssl_context *ssl )
+ 
+     if( ssl->client_auth == 0 || mbedtls_ssl_own_cert( ssl ) == NULL )
+     {
+-        MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= skip write certificate verify" ) );
+-        ssl->state++;
+-        return( 0 );
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++    /* check if we have a chosen srtp protection profile */
++        if ( ssl->dtls_srtp_info.chosen_dtls_srtp_profile != MBEDTLS_SRTP_UNSET_PROFILE ) {
++            return ( MBEDTLS_ERR_SSL_BAD_HS_CERTIFICATE );
++        }
++        else
++        {
++#endif /* MBEDTLS_SSL_DTLS_SRTP */
++            ssl->state++;
++            return( 0 );
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++        }
++#endif
+     }
+ 
+     if( mbedtls_ssl_own_key( ssl ) == NULL )
+diff --git a/library/ssl_srv.c b/library/ssl_srv.c
+index 5fa75543a..604266d1e 100644
+--- a/library/ssl_srv.c
++++ b/library/ssl_srv.c
+@@ -2855,6 +2855,13 @@ static int ssl_write_certificate_request( mbedtls_ssl_context *ssl )
+     if( ssl->handshake->sni_authmode != MBEDTLS_SSL_VERIFY_UNSET )
+         authmode = ssl->handshake->sni_authmode;
+     else
++#endif
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++    /* check if we have a chosen srtp protection profile */
++    if ( ssl->dtls_srtp_info.chosen_dtls_srtp_profile != MBEDTLS_SRTP_UNSET_PROFILE ) {
++        authmode = MBEDTLS_SSL_VERIFY_REQUIRED;
++    }
++        else
+ #endif
+         authmode = ssl->conf->authmode;
+ 
+@@ -2865,8 +2872,20 @@ static int ssl_write_certificate_request( mbedtls_ssl_context *ssl )
+         ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_ECJPAKE ||
+         authmode == MBEDTLS_SSL_VERIFY_NONE )
+     {
+-        MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= skip write certificate request" ) );
+-        return( 0 );
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++    /* check if we have a chosen srtp protection profile */
++        if ( ssl->dtls_srtp_info.chosen_dtls_srtp_profile != MBEDTLS_SRTP_UNSET_PROFILE ) {
++            MBEDTLS_SSL_DEBUG_MSG( 2, ( "should not happen" ) );
++            return ( MBEDTLS_ERR_SSL_UNEXPECTED_MESSAGE );
++        }
++        else
++        {
++#endif
++            MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= skip write certificate request" ) );
++            return( 0 );
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++        }
++#endif
+     }
+ 
+     /*
+diff --git a/library/ssl_tls.c b/library/ssl_tls.c
+index 203fce372..a21ac92b4 100644
+--- a/library/ssl_tls.c
++++ b/library/ssl_tls.c
+@@ -765,7 +765,7 @@ int mbedtls_ssl_derive_keys( mbedtls_ssl_context *ssl )
+ 
+ #if defined(MBEDTLS_SSL_DTLS_SRTP)
+     /* check if we have a chosen srtp protection profile */
+-    if (ssl->dtls_srtp_info.chosen_dtls_srtp_profile != MBEDTLS_SRTP_UNSET_PROFILE) {
++    if ( ssl->dtls_srtp_info.chosen_dtls_srtp_profile != MBEDTLS_SRTP_UNSET_PROFILE ) {
+         /* derive key material for srtp session RFC5764 section 4.2 */
+         /* master key and master salt are respectively 128 bits and 112 bits for all currently available modes :
+          * SRTP_AES128_CM_HMAC_SHA1_80, SRTP_AES128_CM_HMAC_SHA1_32
+@@ -5371,9 +5371,20 @@ int mbedtls_ssl_write_certificate( mbedtls_ssl_context *ssl )
+         ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_ECDHE_PSK ||
+         ciphersuite_info->key_exchange == MBEDTLS_KEY_EXCHANGE_ECJPAKE )
+     {
+-        MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= skip write certificate" ) );
+-        ssl->state++;
+-        return( 0 );
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++    /* check if we have a chosen srtp protection profile */
++        if ( ssl->dtls_srtp_info.chosen_dtls_srtp_profile != MBEDTLS_SRTP_UNSET_PROFILE ) {
++            return ( MBEDTLS_ERR_SSL_BAD_HS_CERTIFICATE );
++        }
++        else
++        {
++#endif /* MBEDTLS_SSL_DTLS_SRTP */
++            MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= skip write certificate" ) );
++            ssl->state++;
++            return( 0 );
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++        }
++#endif
+     }
+ 
+ #if defined(MBEDTLS_SSL_CLI_C)
+@@ -5684,10 +5695,21 @@ int mbedtls_ssl_parse_certificate( mbedtls_ssl_context *ssl )
+ #if defined(MBEDTLS_SSL_SRV_C) && defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
+     const int authmode = ssl->handshake->sni_authmode != MBEDTLS_SSL_VERIFY_UNSET
+                        ? ssl->handshake->sni_authmode
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++                       : ssl->dtls_srtp_info.chosen_dtls_srtp_profile !=
++                               MBEDTLS_SRTP_UNSET_PROFILE
++                       ? MBEDTLS_SSL_VERIFY_REQUIRED
++#endif /* MBEDTLS_SSL_DTLS_SRTP */
+                        : ssl->conf->authmode;
+-#else
+-    const int authmode = ssl->conf->authmode;
+-#endif
++#else /* MBEDTLS_SSL_SRV_C && MBEDTLS_SSL_SERVER_NAME_INDICATION */
++    const int authmode =
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++            ssl->dtls_srtp_info.chosen_dtls_srtp_profile !=
++                                           MBEDTLS_SRTP_UNSET_PROFILE ?
++                         MBEDTLS_SSL_VERIFY_REQUIRED :
++#endif /* MBEDTLS_SSL_DTLS_SRTP */
++            ssl->conf->authmode;
++#endif /* MBEDTLS_SSL_SRV_C && MBEDTLS_SSL_SERVER_NAME_INDICATION */
+     void *rs_ctx = NULL;
+ 
+     MBEDTLS_SSL_DEBUG_MSG( 2, ( "=> parse certificate" ) );
+@@ -7691,7 +7713,6 @@ mbedtls_ssl_srtp_profile mbedtls_ssl_get_dtls_srtp_protection_profile( const mbe
+ }
+ 
+ int mbedtls_ssl_get_dtls_srtp_key_material( const mbedtls_ssl_context *ssl, unsigned char *key, size_t *key_len ) {
+-    *key_len = 0;
+ 
+     /* check output buffer size */
+     if ( *key_len < ssl->dtls_srtp_info.dtls_srtp_keys_len) {
+-- 
+2.17.1
+

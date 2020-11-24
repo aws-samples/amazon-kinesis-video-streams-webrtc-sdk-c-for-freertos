@@ -17,4 +17,34 @@ menu "Example Configuration"
         default 5
         help
             Set the Maximum retry to avoid station reconnecting to the AP unlimited when the AP is really inexistent.
+    
+    config AWS_ACCESS_KEY_ID
+        string "AWS Access Key ID"
+        default "aws-access-key-id"
+        help
+            Set AWS_ACCESS_KEY_ID for kvs webrtc.
+    
+    config AWS_SECRET_ACCESS_KEY
+        string "AWS Secret Access Key"
+        default "aws-secret-access-key"
+        help
+            Set AWS_SECRET_ACCESS_KEY for kvs webrtc.
+    
+    config AWS_KVS_LOG_LEVEL
+        string "AWS KVS Log Level"
+        default "2"
+        help
+            Set AWS_KVS_LOG_LEVEL for kvs webrtc.
+
+    config AWS_DEFAULT_REGION
+        string "AWS Default Region"
+        default "us-west-2"
+        help
+            Set AWS_DEFAULT_REGION for kvs webrtc.
+
+    config AWS_KVS_CHANNEL
+        string "AWS kvs channel"
+        default "ScaryTestChannel"
+        help
+            Set AWS_KVS_CHANNEL for kvs webrtc.
 endmenu

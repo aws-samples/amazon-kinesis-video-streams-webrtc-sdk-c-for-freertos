@@ -1,0 +1,144 @@
+From 66010981f30dde12d123a22b6f8201fd3b6a2c94 Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Mon, 10 Dec 2018 14:56:21 +0200
+Subject: [PATCH 30/43] Add variable validation
+
+1. Check allocation success.
+2. Check parameter correctness in the use_srtp extension
+in server and client.
+---
+ library/ssl_cli.c | 16 ++++++++++------
+ library/ssl_srv.c | 18 +++++++++++++++---
+ library/ssl_tls.c |  2 ++
+ 3 files changed, 27 insertions(+), 9 deletions(-)
+
+diff --git a/library/ssl_cli.c b/library/ssl_cli.c
+index cc9ad7c41..2929cd87a 100644
+--- a/library/ssl_cli.c
++++ b/library/ssl_cli.c
+@@ -752,6 +752,10 @@ static void ssl_write_use_srtp_ext( mbedtls_ssl_context *ssl,
+     if( mki_len != 0 )
+     {
+         memcpy( p, ssl->dtls_srtp_info.mki_value, mki_len );
++        /*
++         * Increment p to point to the current position.
++         */
++        p += mki_len;
+         MBEDTLS_SSL_DEBUG_BUF( 3, "sending mki",  ssl->dtls_srtp_info.mki_value,
+                                ssl->dtls_srtp_info.mki_len );
+     }
+@@ -762,8 +766,9 @@ static void ssl_write_use_srtp_ext( mbedtls_ssl_context *ssl,
+      *                         + protection profile length (2 bytes)
+      *                         + 2 * number of protection profiles
+      *                         + srtp_mki vector length(1 byte)
++     *                         + mki value
+      */
+-    *olen = 2 + 2 + 2 + 2 * ( ssl->conf->dtls_srtp_profile_list_len ) + 1 + mki_len;
++    *olen = p - buf;
+ }
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
+ 
+@@ -1543,7 +1548,8 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+ 
+     /*
+      * Length is 5 and optional mki_value : one protection profile(2 bytes)
+-     *                                      + length(2 bytes) and srtp_mki
++     *                                      + length(2 bytes) + mki_len(1 byte)
++     *                                      and optional srtp_mki
+      */
+     if( ( len != 5 ) && ( len != ( 5 + mki_len ) ) )
+         return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO );
+@@ -1557,9 +1563,7 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+      * one protection profile in server Hello
+      */
+     if( (  buf[0] != 0 ) || ( buf[1] != 2 ) )
+-    {
+         return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO );
+-    }
+ 
+     server_protection_profile_value = ( buf[2] << 8 ) | buf[3];
+     server_protection = mbedtls_ssl_get_srtp_profile_value( server_protection_profile_value );
+@@ -1596,8 +1600,8 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+      *  that is different than the one the client offered, then the client
+      *  MUST abort the handshake and SHOULD send an invalid_parameter alert.
+      */
+-    if( len > 5  &&
+-        ( memcmp( ssl->dtls_srtp_info.mki_value, &buf[5], mki_len ) ) )
++    if( len > 5  && ( buf[4] != mki_len ||
++        ( memcmp( ssl->dtls_srtp_info.mki_value, &buf[5], mki_len ) ) ) )
+     {
+         mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL,
+                                         MBEDTLS_SSL_ALERT_MSG_ILLEGAL_PARAMETER );
+diff --git a/library/ssl_srv.c b/library/ssl_srv.c
+index d704fe2ff..3e494effe 100644
+--- a/library/ssl_srv.c
++++ b/library/ssl_srv.c
+@@ -676,6 +676,8 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+     size_t i,j;
+     size_t profile_length;
+     const mbedtls_ssl_srtp_profile_info *profile_info;
++    /*! 2 bytes for profile length and 1 byte for mki len */
++    const size_t size_of_lengths = 3;
+ 
+     /* If use_srtp is not configured, just ignore the extension */
+     if( ssl->conf->dtls_srtp_profile_list == NULL ||
+@@ -697,14 +699,24 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+      * Min length is 5: at least one protection profile(2 bytes)
+      *                  and length(2 bytes) + srtp_mki length(1 byte)
+      */
+-    if( len < 5 )
++    if( len < size_of_lengths + 2 )
++    {
++        mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL,
++                                        MBEDTLS_SSL_ALERT_MSG_HANDSHAKE_FAILURE );
+         return( MBEDTLS_ERR_SSL_BAD_HS_CLIENT_HELLO );
++    }
+ 
+    ssl->dtls_srtp_info.chosen_dtls_srtp_profile = MBEDTLS_SRTP_UNSET_PROFILE;
+ 
+     /* first 2 bytes are protection profile length(in bytes) */
+     profile_length = ( buf[0] << 8 ) | buf[1];
+ 
++    if( profile_length > len - size_of_lengths )
++    {
++        mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL,
++                                        MBEDTLS_SSL_ALERT_MSG_HANDSHAKE_FAILURE );
++        return( MBEDTLS_ERR_SSL_BAD_HS_CLIENT_HELLO );
++    }
+     /*
+      * parse the extension list values are defined in
+      * http://www.iana.org/assignments/srtp-protection/srtp-protection.xhtml
+@@ -737,7 +749,8 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+         ( len > ( profile_length + 2 ) ) )
+     {
+         ssl->dtls_srtp_info.mki_len = buf[profile_length + 2];
+-        if( ssl->dtls_srtp_info.mki_len > MBEDTLS_DTLS_SRTP_MAX_MKI_LENGTH )
++        if( ssl->dtls_srtp_info.mki_len > MBEDTLS_DTLS_SRTP_MAX_MKI_LENGTH ||
++            ssl->dtls_srtp_info.mki_len + profile_length + size_of_lengths != len )
+         {
+             mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL,
+                                             MBEDTLS_SSL_ALERT_MSG_HANDSHAKE_FAILURE );
+@@ -745,7 +758,6 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+             return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO );
+         }
+ 
+-        ssl->dtls_srtp_info.mki_len = buf[profile_length + 2];
+         for( i=0; i < ssl->dtls_srtp_info.mki_len; i++ )
+         {
+             ssl->dtls_srtp_info.mki_value[i] = buf[profile_length + 2 + 1 + i];
+diff --git a/library/ssl_tls.c b/library/ssl_tls.c
+index 30ab49824..32c16233e 100644
+--- a/library/ssl_tls.c
++++ b/library/ssl_tls.c
+@@ -7726,6 +7726,8 @@ int mbedtls_ssl_conf_dtls_srtp_protection_profiles( mbedtls_ssl_config *conf,
+     conf->dtls_srtp_profile_list =
+             (mbedtls_ssl_srtp_profile*)mbedtls_calloc(1,
+              profiles_number * sizeof( mbedtls_ssl_srtp_profile ) );
++    if( conf->dtls_srtp_profile_list == NULL )
++        return( MBEDTLS_ERR_SSL_ALLOC_FAILED );
+ 
+     for( i=0; i < profiles_number; i++ ) {
+         switch( profiles[i] ) {
+-- 
+2.17.1
+

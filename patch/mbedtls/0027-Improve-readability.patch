@@ -1,0 +1,391 @@
+From ecb4b3916c5babffd38a98747bca95d636842b3e Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Thu, 6 Dec 2018 17:12:49 +0200
+Subject: [PATCH 27/43] Improve readability
+
+Improve readability of the code:
+1. move common code to `ssl_internal.h` as `static inline`.
+2. Add comments.
+3. Use local variables for extension size.
+4. Change function signature, by adding buffer size and output length.
+5. Take server srtp profile out of the loop.
+---
+ include/mbedtls/ssl.h          |   7 +-
+ include/mbedtls/ssl_internal.h |  48 +++++++++++++
+ library/ssl_cli.c              | 125 +++++++++++++++------------------
+ library/ssl_srv.c              |  58 ++++-----------
+ library/ssl_tls.c              |   7 +-
+ 5 files changed, 123 insertions(+), 122 deletions(-)
+
+diff --git a/include/mbedtls/ssl.h b/include/mbedtls/ssl.h
+index f2d88b7a3..ed3d94cbf 100644
+--- a/include/mbedtls/ssl.h
++++ b/include/mbedtls/ssl.h
+@@ -2543,15 +2543,16 @@ mbedtls_ssl_srtp_profile mbedtls_ssl_get_dtls_srtp_protection_profile
+  *
+  * \param ssl              SSL context tobe used.
+  * \param key              Buffer to hold the generated key material.
+- * \param key_len          [in/out] key buffer size. outputs the actual number
+- *                         of bytes written.
++ * \param key_buffer_len   Key buffer size.
++ * \param olen             the actual number of bytes written to key.
+  *
+  * \return                 0 on success, #MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL if
+  *                         the key buffer is too small to hold the generated key.
+  */
+ int mbedtls_ssl_get_dtls_srtp_key_material( const mbedtls_ssl_context *ssl,
+                                             unsigned char *key,
+-                                            size_t *key_len );
++                                            size_t key_buffer_len,
++                                            size_t *olen );
+ 
+ /**
+  * \brief                  Utility function to get information on DTLS-SRTP profile.
+diff --git a/include/mbedtls/ssl_internal.h b/include/mbedtls/ssl_internal.h
+index bd5ad94db..6bfb622a3 100644
+--- a/include/mbedtls/ssl_internal.h
++++ b/include/mbedtls/ssl_internal.h
+@@ -658,6 +658,54 @@ int mbedtls_ssl_check_sig_hash( const mbedtls_ssl_context *ssl,
+                                 mbedtls_md_type_t md );
+ #endif
+ 
++#if defined(MBEDTLS_SSL_DTLS_SRTP)
++static inline uint16_t mbedtls_ssl_get_srtp_profile_iana_value
++                                            ( mbedtls_ssl_srtp_profile profile )
++{
++    uint16_t profile_value = 0xffff;
++    switch( profile )
++    {
++        case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80:
++            profile_value = MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80_IANA_VALUE;
++            break;
++        case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32:
++            profile_value = MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32_IANA_VALUE;
++            break;
++        case MBEDTLS_SRTP_NULL_HMAC_SHA1_80:
++            profile_value = MBEDTLS_SRTP_NULL_HMAC_SHA1_80_IANA_VALUE;
++            break;
++        case MBEDTLS_SRTP_NULL_HMAC_SHA1_32:
++            profile_value = MBEDTLS_SRTP_NULL_HMAC_SHA1_32_IANA_VALUE;
++            break;
++        default: break;
++    }
++    return( profile_value );
++}
++
++static inline mbedtls_ssl_srtp_profile mbedtls_ssl_get_srtp_profile_value
++                                                    ( uint16_t srtp_iana_value )
++{
++    mbedtls_ssl_srtp_profile profile_value = MBEDTLS_SRTP_UNSET_PROFILE;
++    switch( srtp_iana_value )
++    {
++        case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80_IANA_VALUE:
++            profile_value = MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80;
++            break;
++        case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32_IANA_VALUE:
++            profile_value = MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32;
++            break;
++        case MBEDTLS_SRTP_NULL_HMAC_SHA1_80_IANA_VALUE:
++            profile_value = MBEDTLS_SRTP_NULL_HMAC_SHA1_80;
++            break;
++        case MBEDTLS_SRTP_NULL_HMAC_SHA1_32_IANA_VALUE:
++            profile_value = MBEDTLS_SRTP_NULL_HMAC_SHA1_32;
++            break;
++        default: break;
++    }
++    return( profile_value );
++}
++#endif
++
+ #if defined(MBEDTLS_X509_CRT_PARSE_C)
+ static inline mbedtls_pk_context *mbedtls_ssl_own_key( mbedtls_ssl_context *ssl )
+ {
+diff --git a/library/ssl_cli.c b/library/ssl_cli.c
+index ea5090f64..76be7436b 100644
+--- a/library/ssl_cli.c
++++ b/library/ssl_cli.c
+@@ -678,6 +678,8 @@ static void ssl_write_use_srtp_ext( mbedtls_ssl_context *ssl,
+     unsigned char *p = buf;
+     size_t protection_profiles_index = 0;
+     size_t mki_len = 0, i;
++    size_t ext_len = 0;
++    uint16_t profile_value = 0;
+ 
+     *olen = 0;
+ 
+@@ -710,10 +712,10 @@ static void ssl_write_use_srtp_ext( mbedtls_ssl_context *ssl,
+      *                    ssl->conf->dtls_srtp_profile_list_len * 2 (each profile is 2 bytes length ),
+      *                    1 byte for srtp_mki vector length and the mki_len value
+      */
+-    *p++ = (unsigned char)( ( ( 2 + 2 * ( ssl->conf->dtls_srtp_profile_list_len )
+-                                + 1 + mki_len ) >> 8 ) & 0xFF );
+-    *p++ = (unsigned char)( ( ( 2 + 2 * (ssl->conf->dtls_srtp_profile_list_len )
+-                                + 1 + mki_len )      ) & 0xFF );
++    ext_len = 2 + 2 * ( ssl->conf->dtls_srtp_profile_list_len ) + 1 + mki_len;
++
++    *p++ = (unsigned char)( ( ( ext_len & 0xFF00 ) >> 8 ) & 0xFF );
++    *p++ = (unsigned char)( ext_len & 0xFF );
+ 
+     /* protection profile length: 2*(ssl->conf->dtls_srtp_profile_list_len) */
+     *p++ = (unsigned char)( ( ( 2 * (ssl->conf->dtls_srtp_profile_list_len) )
+@@ -725,45 +727,23 @@ static void ssl_write_use_srtp_ext( mbedtls_ssl_context *ssl,
+          protection_profiles_index < ssl->conf->dtls_srtp_profile_list_len;
+          protection_profiles_index++ )
+     {
+-        switch( ssl->conf->dtls_srtp_profile_list[protection_profiles_index] ) {
+-            case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80:
+-                MBEDTLS_SSL_DEBUG_MSG( 3, ( "ssl_write_use_srtp_ext, add profile: %04x",
+-                        MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80_IANA_VALUE ) );
+-                *p++ = ( ( ( MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80_IANA_VALUE )
+-                            >> 8 ) & 0xFF );
+-                *p++ = ( ( MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80_IANA_VALUE )
+-                          & 0xFF );
+-                break;
+-            case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32:
+-                MBEDTLS_SSL_DEBUG_MSG( 3, ( "ssl_write_use_srtp_ext, add profile: %04x",
+-                        MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32_IANA_VALUE ) );
+-                *p++ = ( ( ( MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32_IANA_VALUE )
+-                            >> 8 ) & 0xFF );
+-                *p++ = ( ( MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32_IANA_VALUE )
+-                         & 0xFF );
+-                break;
+-            case MBEDTLS_SRTP_NULL_HMAC_SHA1_80:
+-                MBEDTLS_SSL_DEBUG_MSG( 3, ( "ssl_write_use_srtp_ext, add profile: %04x",
+-                        MBEDTLS_SRTP_NULL_HMAC_SHA1_80_IANA_VALUE ) );
+-                *p++ = ( ( ( MBEDTLS_SRTP_NULL_HMAC_SHA1_80_IANA_VALUE ) >> 8 )
+-                         & 0xFF ) ;
+-                *p++ = ( ( MBEDTLS_SRTP_NULL_HMAC_SHA1_80_IANA_VALUE ) & 0xFF );
+-                break;
+-            case MBEDTLS_SRTP_NULL_HMAC_SHA1_32:
+-                MBEDTLS_SSL_DEBUG_MSG( 3, ( "ssl_write_use_srtp_ext, add profile: %04x",
+-                        MBEDTLS_SRTP_NULL_HMAC_SHA1_32_IANA_VALUE ) );
+-                *p++ = ( ( ( MBEDTLS_SRTP_NULL_HMAC_SHA1_32_IANA_VALUE ) >> 8 )
+-                         & 0xFF );
+-                *p++ = ( ( MBEDTLS_SRTP_NULL_HMAC_SHA1_32_IANA_VALUE ) & 0xFF );
+-                break;
+-            default:
+-                /*
+-                 * Note: we shall never arrive here as protection profiles
+-                 * is checked by ssl_set_dtls_srtp_protection_profiles function
+-                 */
+-                MBEDTLS_SSL_DEBUG_MSG( 1, ( "client hello, ignore illegal DTLS-SRTP protection profile %d",
+-                                            ssl->conf->dtls_srtp_profile_list[protection_profiles_index] ) );
+-                break;
++        profile_value = mbedtls_ssl_get_srtp_profile_iana_value
++                ( ssl->conf->dtls_srtp_profile_list[protection_profiles_index] );
++        if( profile_value != 0xFFFF )
++        {
++            MBEDTLS_SSL_DEBUG_MSG( 3, ( "ssl_write_use_srtp_ext, add profile: %04x",
++                                        profile_value ) );
++            *p++ = ( ( profile_value >> 8 ) & 0xFF );
++            *p++ = ( profile_value & 0xFF );
++        }
++        else
++        {
++            /*
++             * Note: we shall never arrive here as protection profiles
++             * is checked by ssl_set_dtls_srtp_protection_profiles function
++             */
++            MBEDTLS_SSL_DEBUG_MSG( 3, ( "client hello, ignore illegal DTLS-SRTP protection profile %d",
++                                        ssl->conf->dtls_srtp_profile_list[protection_profiles_index] ) );
+         }
+     }
+ 
+@@ -1579,13 +1559,17 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+      * protection profile length must be 0x0002 as we must have only
+      * one protection profile in server Hello
+      */
+-    if( ( (uint16_t)( ( buf[0] << 8 ) | buf[1] ) ) != 0x0002 )
++    if( (  buf[0] != 0 ) || ( buf[1] != 2 ) )
+     {
+         return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO );
+     }
+-    else
++
++    server_protection_profile_value = ( buf[2] << 8 ) | buf[3];
++    server_protection = mbedtls_ssl_get_srtp_profile_value( server_protection_profile_value );
++    profile_info = mbedtls_ssl_dtls_srtp_profile_info_from_id( server_protection );
++    if( profile_info != NULL )
+     {
+-        server_protection_profile_value = ( buf[2] << 8 ) | buf[3];
++        MBEDTLS_SSL_DEBUG_MSG( 3, ( "found srtp profile: %s", profile_info->name ) );
+     }
+ 
+     ssl->dtls_srtp_info.chosen_dtls_srtp_profile = MBEDTLS_SRTP_UNSET_PROFILE;
+@@ -1595,29 +1579,6 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+      */
+     for( i=0; i < ssl->conf->dtls_srtp_profile_list_len; i++)
+     {
+-        switch( server_protection_profile_value ) {
+-            case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80_IANA_VALUE:
+-                server_protection = MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80;
+-                break;
+-            case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32_IANA_VALUE:
+-                server_protection = MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32;
+-                break;
+-            case MBEDTLS_SRTP_NULL_HMAC_SHA1_80_IANA_VALUE:
+-                server_protection = MBEDTLS_SRTP_NULL_HMAC_SHA1_80;
+-                break;
+-            case MBEDTLS_SRTP_NULL_HMAC_SHA1_32_IANA_VALUE:
+-                server_protection = MBEDTLS_SRTP_NULL_HMAC_SHA1_32;
+-                break;
+-            default:
+-                server_protection = MBEDTLS_SRTP_UNSET_PROFILE;
+-                break;
+-        }
+-        profile_info = mbedtls_ssl_dtls_srtp_profile_info_from_id( server_protection );
+-        if( profile_info != NULL )
+-        {
+-            MBEDTLS_SSL_DEBUG_MSG( 3, ( "found srtp profile: %s", profile_info->name ) );
+-        }
+-
+         if( server_protection == ssl->conf->dtls_srtp_profile_list[i] ) {
+             ssl->dtls_srtp_info.chosen_dtls_srtp_profile = ssl->conf->dtls_srtp_profile_list[i];
+             MBEDTLS_SSL_DEBUG_MSG( 3, ( "selected srtp profile: %s", profile_info->name ) );
+@@ -3536,7 +3497,31 @@ static int ssl_write_certificate_verify( mbedtls_ssl_context *ssl )
+     if( ssl->client_auth == 0 || mbedtls_ssl_own_cert( ssl ) == NULL )
+     {
+ #if defined(MBEDTLS_SSL_DTLS_SRTP)
+-        /* check if we have a chosen srtp protection profile */
++        /*
++         * Check if we have a chosen srtp protection profile.
++         * According to RFC 5764 section 4.1 client certificate in dtls srtp
++         * is mandatory:
++         *        Client                               Server
++         *
++         *   ClientHello + use_srtp   -------->
++         *                                 ServerHello + use_srtp
++         *                                           Certificate*
++         *                                     ServerKeyExchange*
++         *                                     ertificateRequest*
++         *                            <--------   ServerHelloDone
++         *   Certificate*
++         *   ClientKeyExchange
++         *   CertificateVerify*
++         *   [ChangeCipherSpec]
++         *   Finished                 -------->
++         *                                     [ChangeCipherSpec]
++         *                            <--------          Finished
++         *   SRTP packets             <------->      SRTP packets
++         *
++         * Note that '*' indicates messages that are not always sent in DTLS.
++         * The CertificateRequest, client and server Certificates, and
++         * CertificateVerify will be sent in DTLS-SRTP.
++         */
+         if( ssl->dtls_srtp_info.chosen_dtls_srtp_profile != MBEDTLS_SRTP_UNSET_PROFILE )
+         {
+             return ( MBEDTLS_ERR_SSL_BAD_HS_CERTIFICATE );
+diff --git a/library/ssl_srv.c b/library/ssl_srv.c
+index 75cac6089..b44c720ce 100644
+--- a/library/ssl_srv.c
++++ b/library/ssl_srv.c
+@@ -713,25 +713,8 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+     {
+         /* + 2 to skip the length field */
+         uint16_t protection_profile_value = buf[j + 2] << 8 | buf[j+3];
++        client_protection = mbedtls_ssl_get_srtp_profile_value( protection_profile_value );
+ 
+-        switch ( protection_profile_value )
+-        {
+-            case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80_IANA_VALUE:
+-                client_protection = MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80;
+-                break;
+-            case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32_IANA_VALUE:
+-                client_protection = MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32;
+-                break;
+-            case MBEDTLS_SRTP_NULL_HMAC_SHA1_80_IANA_VALUE:
+-                client_protection = MBEDTLS_SRTP_NULL_HMAC_SHA1_80;
+-                break;
+-            case MBEDTLS_SRTP_NULL_HMAC_SHA1_32_IANA_VALUE:
+-                client_protection = MBEDTLS_SRTP_NULL_HMAC_SHA1_32;
+-                break;
+-            default:
+-                client_protection = MBEDTLS_SRTP_UNSET_PROFILE;
+-                break;
+-        }
+         profile_info = mbedtls_ssl_dtls_srtp_profile_info_from_id( client_protection );
+         if( profile_info != NULL )
+         {
+@@ -2457,6 +2440,7 @@ static void ssl_write_use_srtp_ext( mbedtls_ssl_context *ssl,
+                                     size_t *olen )
+ {
+     size_t mki_len = 0, ext_len = 0, i;
++    uint16_t profile_value = 0;
+ 
+     if( ssl->dtls_srtp_info.chosen_dtls_srtp_profile == MBEDTLS_SRTP_UNSET_PROFILE )
+     {
+@@ -2486,34 +2470,16 @@ static void ssl_write_use_srtp_ext( mbedtls_ssl_context *ssl,
+     /* protection profile length: 2 */
+     buf[4] = 0x00;
+     buf[5] = 0x02;
+-    switch (ssl->dtls_srtp_info.chosen_dtls_srtp_profile) {
+-        case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80:
+-            buf[6] = (unsigned char)( ( MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80_IANA_VALUE >> 8 )
+-                                      & 0xFF );
+-            buf[7] = (unsigned char)( ( MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_80_IANA_VALUE     )
+-                                      & 0xFF );
+-            break;
+-        case MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32:
+-            buf[6] = (unsigned char)( ( MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32_IANA_VALUE >> 8 )
+-                                      & 0xFF );
+-            buf[7] = (unsigned char)( ( MBEDTLS_SRTP_AES128_CM_HMAC_SHA1_32_IANA_VALUE      )
+-                                      & 0xFF );
+-            break;
+-        case MBEDTLS_SRTP_NULL_HMAC_SHA1_80:
+-            buf[6] = (unsigned char)( ( MBEDTLS_SRTP_NULL_HMAC_SHA1_80_IANA_VALUE >> 8 )
+-                                      & 0xFF );
+-            buf[7] = (unsigned char)( ( MBEDTLS_SRTP_NULL_HMAC_SHA1_80_IANA_VALUE      )
+-                                      & 0xFF );
+-            break;
+-        case MBEDTLS_SRTP_NULL_HMAC_SHA1_32:
+-            buf[6] = (unsigned char)( ( MBEDTLS_SRTP_NULL_HMAC_SHA1_32_IANA_VALUE >> 8 )
+-                                      & 0xFF );
+-            buf[7] = (unsigned char)( ( MBEDTLS_SRTP_NULL_HMAC_SHA1_32_IANA_VALUE      )
+-                                      & 0xFF );
+-            break;
+-        default:
+-            *olen = 0;
+-            return;
++    profile_value = mbedtls_ssl_get_srtp_profile_iana_value( ssl->dtls_srtp_info.chosen_dtls_srtp_profile );
++    if( profile_value != 0xFFFF )
++    {
++        buf[6] = (unsigned char)( ( profile_value >> 8 ) & 0xFF );
++        buf[7] = (unsigned char)( profile_value & 0xFF );
++    }
++    else
++    {
++        *olen = 0;
++        return;
+     }
+ 
+     buf[8] = mki_len & 0xFF;
+diff --git a/library/ssl_tls.c b/library/ssl_tls.c
+index 2d8445f85..30ab49824 100644
+--- a/library/ssl_tls.c
++++ b/library/ssl_tls.c
+@@ -7757,18 +7757,19 @@ mbedtls_ssl_srtp_profile
+ 
+ int mbedtls_ssl_get_dtls_srtp_key_material( const mbedtls_ssl_context *ssl,
+                                             unsigned char *key,
+-                                            size_t *key_len )
++                                            size_t key_buffer_len,
++                                            size_t *olen )
+ {
+ 
+     /* check output buffer size */
+-    if( *key_len < ssl->dtls_srtp_info.dtls_srtp_keys_len )
++    if( key_buffer_len < ssl->dtls_srtp_info.dtls_srtp_keys_len )
+     {
+         return( MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL );
+     }
+ 
+     memcpy( key, ssl->dtls_srtp_info.dtls_srtp_keys,
+             ssl->dtls_srtp_info.dtls_srtp_keys_len );
+-    *key_len = ssl->dtls_srtp_info.dtls_srtp_keys_len;
++    *olen = ssl->dtls_srtp_info.dtls_srtp_keys_len;
+ 
+     return( 0 );
+ }
+-- 
+2.17.1
+

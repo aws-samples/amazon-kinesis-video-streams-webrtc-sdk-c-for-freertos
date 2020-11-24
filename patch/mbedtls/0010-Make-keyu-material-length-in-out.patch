@@ -1,0 +1,46 @@
+From 85674d29b09849476622a8bcfc2b642737a642af Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Thu, 29 Mar 2018 18:26:30 +0300
+Subject: [PATCH 10/43] Make keyu material length in \ out
+
+Make the key material length in mbedtls_ssl_get_dtls_srtp_key_material
+to be in\out, like it is done all over the library
+---
+ include/mbedtls/ssl.h | 2 +-
+ library/ssl_tls.c     | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/mbedtls/ssl.h b/include/mbedtls/ssl.h
+index 6588196ea..73a960f89 100644
+--- a/include/mbedtls/ssl.h
++++ b/include/mbedtls/ssl.h
+@@ -2518,7 +2518,7 @@ mbedtls_ssl_srtp_profile mbedtls_ssl_get_dtls_srtp_protection_profile( const mbe
+  *
+  * \return         0 on succes, MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL if the key buffer is too small to hold the generated key
+  */
+-int mbedtls_ssl_get_dtls_srtp_key_material( const mbedtls_ssl_context *ssl, unsigned char *key, const size_t key_buffer_len, size_t *key_len );
++int mbedtls_ssl_get_dtls_srtp_key_material( const mbedtls_ssl_context *ssl, unsigned char *key, size_t *key_len );
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
+ 
+ /**
+diff --git a/library/ssl_tls.c b/library/ssl_tls.c
+index 976464d59..203fce372 100644
+--- a/library/ssl_tls.c
++++ b/library/ssl_tls.c
+@@ -7690,11 +7690,11 @@ mbedtls_ssl_srtp_profile mbedtls_ssl_get_dtls_srtp_protection_profile( const mbe
+     return( ssl->dtls_srtp_info.chosen_dtls_srtp_profile);
+ }
+ 
+-int mbedtls_ssl_get_dtls_srtp_key_material( const mbedtls_ssl_context *ssl, unsigned char *key, const size_t key_buffer_len, size_t *key_len ) {
++int mbedtls_ssl_get_dtls_srtp_key_material( const mbedtls_ssl_context *ssl, unsigned char *key, size_t *key_len ) {
+     *key_len = 0;
+ 
+     /* check output buffer size */
+-    if ( key_buffer_len < ssl->dtls_srtp_info.dtls_srtp_keys_len) {
++    if ( *key_len < ssl->dtls_srtp_info.dtls_srtp_keys_len) {
+         return MBEDTLS_ERR_SSL_BUFFER_TOO_SMALL;
+     }
+ 
+-- 
+2.17.1
+

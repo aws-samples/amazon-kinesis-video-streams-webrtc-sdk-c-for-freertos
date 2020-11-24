@@ -1,0 +1,26 @@
+From 9bd20dc54892c388b90edcdf16a34883314f68c9 Mon Sep 17 00:00:00 2001
+From: Julien Wadel <julien.wadel@belledonne-communications.com>
+Date: Tue, 11 Feb 2020 10:17:26 +0100
+Subject: [PATCH 38/43] Set installation to
+ CMAKE_INSTALL_LIBDIR/CMAKE_INSTALL_BINDIR as GNU standard installation
+
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 3360214cf..78656d7a4 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -170,7 +170,7 @@ endif(CMAKE_BUILD_TYPE STREQUAL "Coverage")
+ 
+ if(LIB_INSTALL_DIR)
+ else()
+-    set(LIB_INSTALL_DIR lib)
++    set(LIB_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR})
+ endif()
+ 
+ include_directories(include/)
+-- 
+2.17.1
+

@@ -1,0 +1,28 @@
+From 7d39ccf6b13f75d96e57093d3d83dba284caf715 Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Tue, 3 Apr 2018 18:29:25 +0300
+Subject: [PATCH 14/43] Add ChangeLog
+
+Add ChangLog item, describing the feature
+---
+ ChangeLog | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/ChangeLog b/ChangeLog
+index b3984f145..bc15fdc72 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -247,6 +247,10 @@ Changes
+    * Ciphersuites based on 3DES now have the lowest priority by default when
+      they are enabled.
+ 
++Features
++   * Add support for DTLS-SRTP as defined in RFC 5764. Based on contribution done
++     by Johan Pascal in #361.
++
+ = mbed TLS 2.16.0 branch released 2018-12-21
+ 
+ Features
+-- 
+2.17.1
+

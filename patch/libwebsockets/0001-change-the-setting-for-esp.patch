@@ -1,0 +1,25 @@
+From e9895cf108d85185181fd9cdd1925fc0b263d86f Mon Sep 17 00:00:00 2001
+From: ycyang <yc.yang1229@gmail.com>
+Date: Wed, 14 Oct 2020 13:05:19 +0800
+Subject: [PATCH 1/2] change the setting for esp.
+
+---
+ CMakeLists-implied-options.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists-implied-options.txt b/CMakeLists-implied-options.txt
+index 0da12124..2810bfca 100644
+--- a/CMakeLists-implied-options.txt
++++ b/CMakeLists-implied-options.txt
+@@ -240,7 +240,7 @@ if (LWS_PLAT_FREERTOS)
+  set(LWS_HAVE_MALLOC 1)
+  set(LWS_HAVE_REALLOC 1)
+  set(LWS_HAVE_GETIFADDRS 1)
+- set(LWS_WITH_CUSTOM_HEADERS 0)
++ set(LWS_WITH_CUSTOM_HEADERS 1)
+ endif()
+ 
+ #if (LWS_WITH_ESP32)
+-- 
+2.17.1
+

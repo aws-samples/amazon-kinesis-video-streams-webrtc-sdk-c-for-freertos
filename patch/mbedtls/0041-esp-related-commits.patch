@@ -1,0 +1,179 @@
+From 35c777dab3ffb5c29254c933d09089e2f2fa68e8 Mon Sep 17 00:00:00 2001
+From: ycyang <yc.yang1229@gmail.com>
+Date: Tue, 20 Oct 2020 10:46:39 +0800
+Subject: [PATCH 41/43] esp related commits.
+
+---
+ include/mbedtls/bignum.h |  5 +++++
+ library/bignum.c         | 13 +++++++++++++
+ library/ecp.c            |  2 +-
+ library/hmac_drbg.c      |  2 +-
+ library/ssl_srv.c        |  2 +-
+ library/ssl_tls.c        |  2 ++
+ library/x509_crt.c       |  2 +-
+ 7 files changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/include/mbedtls/bignum.h b/include/mbedtls/bignum.h
+index 22b373113..1fb3dd7b2 100644
+--- a/include/mbedtls/bignum.h
++++ b/include/mbedtls/bignum.h
+@@ -106,6 +106,8 @@
+ #define MBEDTLS_LN_2_DIV_LN_10_SCALE100                 332
+ #define MBEDTLS_MPI_RW_BUFFER_SIZE             ( ((MBEDTLS_MPI_MAX_BITS_SCALE100 + MBEDTLS_LN_2_DIV_LN_10_SCALE100 - 1) / MBEDTLS_LN_2_DIV_LN_10_SCALE100) + 10 + 6 )
+ 
++#if !defined(MBEDTLS_BIGNUM_ALT)
++
+ /*
+  * Define the base integer type, architecture-wise.
+  *
+@@ -965,6 +967,9 @@ typedef enum {
+ int mbedtls_mpi_gen_prime( mbedtls_mpi *X, size_t nbits, int flags,
+                    int (*f_rng)(void *, unsigned char *, size_t),
+                    void *p_rng );
++#else /* MBEDTLS_BIGNUM_ALT */
++#include "bignum_alt.h"
++#endif /* MBEDTLS_BIGNUM_ALT */
+ 
+ #if defined(MBEDTLS_SELF_TEST)
+ 
+diff --git a/library/bignum.c b/library/bignum.c
+index 87ccf42fa..f84e81b6a 100644
+--- a/library/bignum.c
++++ b/library/bignum.c
+@@ -59,6 +59,8 @@
+ #define mbedtls_free       free
+ #endif
+ 
++#if !defined(MBEDTLS_BIGNUM_ALT)
++
+ #define MPI_VALIDATE_RET( cond )                                       \
+     MBEDTLS_INTERNAL_VALIDATE_RET( cond, MBEDTLS_ERR_MPI_BAD_INPUT_DATA )
+ #define MPI_VALIDATE( cond )                                           \
+@@ -1422,6 +1424,8 @@ int mbedtls_mpi_sub_int( mbedtls_mpi *X, const mbedtls_mpi *A, mbedtls_mpi_sint
+     return( mbedtls_mpi_sub_mpi( X, A, &_B ) );
+ }
+ 
++#if !defined(MBEDTLS_MPI_MUL_MPI_ALT) || !defined(MBEDTLS_MPI_EXP_MOD_ALT)
++
+ /*
+  * Helper for mbedtls_mpi multiplication
+  */
+@@ -1433,6 +1437,7 @@ static
+  */
+ __attribute__ ((noinline))
+ #endif
++
+ void mpi_mul_hlp( size_t i, mbedtls_mpi_uint *s, mbedtls_mpi_uint *d, mbedtls_mpi_uint b )
+ {
+     mbedtls_mpi_uint c = 0, t = 0;
+@@ -1494,6 +1499,9 @@ void mpi_mul_hlp( size_t i, mbedtls_mpi_uint *s, mbedtls_mpi_uint *d, mbedtls_mp
+     while( c != 0 );
+ }
+ 
++#endif
++
++#if !defined(MBEDTLS_MPI_MUL_MPI_ALT)
+ /*
+  * Baseline multiplication: X = A * B  (HAC 14.12)
+  */
+@@ -1533,6 +1541,7 @@ cleanup:
+ 
+     return( ret );
+ }
++#endif
+ 
+ /*
+  * Baseline multiplication: X = A * b
+@@ -1870,6 +1879,8 @@ int mbedtls_mpi_mod_int( mbedtls_mpi_uint *r, const mbedtls_mpi *A, mbedtls_mpi_
+     return( 0 );
+ }
+ 
++#if !defined(MBEDTLS_MPI_EXP_MOD_ALT)
++
+ /*
+  * Fast Montgomery initialization (thanks to Tom St Denis)
+  */
+@@ -2161,6 +2172,7 @@ cleanup:
+ 
+     return( ret );
+ }
++#endif
+ 
+ /*
+  * Greatest common divisor: G = gcd(A, B)  (HAC 14.54)
+@@ -2688,6 +2700,7 @@ cleanup:
+ }
+ 
+ #endif /* MBEDTLS_GENPRIME */
++#endif /* MBEDTLS_BIGNUM_ALT */
+ 
+ #if defined(MBEDTLS_SELF_TEST)
+ 
+diff --git a/library/ecp.c b/library/ecp.c
+index 725e176df..da50dde1b 100644
+--- a/library/ecp.c
++++ b/library/ecp.c
+@@ -1785,7 +1785,7 @@ static int ecp_mul_comb_core( const mbedtls_ecp_group *grp, mbedtls_ecp_point *R
+                               void *p_rng,
+                               mbedtls_ecp_restart_ctx *rs_ctx )
+ {
+-    int ret;
++    int ret = 0;
+     mbedtls_ecp_point Txi;
+     size_t i;
+ 
+diff --git a/library/hmac_drbg.c b/library/hmac_drbg.c
+index 284c9b4e9..c5a01be93 100644
+--- a/library/hmac_drbg.c
++++ b/library/hmac_drbg.c
+@@ -74,7 +74,7 @@ int mbedtls_hmac_drbg_update_ret( mbedtls_hmac_drbg_context *ctx,
+     unsigned char rounds = ( additional != NULL && add_len != 0 ) ? 2 : 1;
+     unsigned char sep[1];
+     unsigned char K[MBEDTLS_MD_MAX_SIZE];
+-    int ret;
++    int ret = 0;
+ 
+     for( sep[0] = 0; sep[0] < rounds; sep[0]++ )
+     {
+diff --git a/library/ssl_srv.c b/library/ssl_srv.c
+index 3e494effe..766d4dc1e 100644
+--- a/library/ssl_srv.c
++++ b/library/ssl_srv.c
+@@ -2446,7 +2446,7 @@ static void ssl_write_alpn_ext( mbedtls_ssl_context *ssl,
+ }
+ #endif /* MBEDTLS_ECDH_C || MBEDTLS_ECDSA_C */
+ 
+-#if defined(MBEDTLS_SSL_DTLS_SRTP ) && defined(MBEDTLS_SSL_PROTO_DTLS)
++#if defined(MBEDTLS_SSL_DTLS_SRTP )
+ static void ssl_write_use_srtp_ext( mbedtls_ssl_context *ssl,
+                                     unsigned char *buf,
+                                     size_t *olen )
+diff --git a/library/ssl_tls.c b/library/ssl_tls.c
+index 32c16233e..9efdf5fcb 100644
+--- a/library/ssl_tls.c
++++ b/library/ssl_tls.c
+@@ -1029,6 +1029,8 @@ int mbedtls_ssl_derive_keys( mbedtls_ssl_context *ssl )
+ #if defined(MBEDTLS_SSL_HW_RECORD_ACCEL)
+     if( mbedtls_ssl_hw_record_init != NULL )
+     {
++        int ret = 0;
++
+         MBEDTLS_SSL_DEBUG_MSG( 2, ( "going for mbedtls_ssl_hw_record_init()" ) );
+ 
+         if( ( ret = mbedtls_ssl_hw_record_init( ssl, key1, key2, transform->keylen,
+diff --git a/library/x509_crt.c b/library/x509_crt.c
+index 9c2e36547..cddb4ef53 100644
+--- a/library/x509_crt.c
++++ b/library/x509_crt.c
+@@ -2013,7 +2013,7 @@ static int x509_crt_find_parent_in(
+ {
+     int ret;
+     mbedtls_x509_crt *parent, *fallback_parent;
+-    int signature_is_good, fallback_signature_is_good;
++    int signature_is_good = 0, fallback_signature_is_good;
+ 
+ #if defined(MBEDTLS_ECDSA_C) && defined(MBEDTLS_ECP_RESTARTABLE)
+     /* did we have something in progress? */
+-- 
+2.17.1
+

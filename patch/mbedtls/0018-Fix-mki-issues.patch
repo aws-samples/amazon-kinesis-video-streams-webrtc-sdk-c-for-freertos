@@ -1,0 +1,162 @@
+From b44eb8e00b695f805fedfc3f1cb8d2f1b59fd58b Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Tue, 3 Jul 2018 15:08:32 +0300
+Subject: [PATCH 18/43] Fix mki issues
+
+1. Set correct mki from the `use_srtp` extension.
+2. Use mki value received from the client as the mki used by server.
+3. Use `mbedtls_ssl_dtls_srtp_set_mki_value()` as a client API only.
+---
+ library/ssl_cli.c          |  2 +-
+ library/ssl_srv.c          |  7 ++++---
+ programs/ssl/ssl_server2.c | 39 +++++++++++---------------------------
+ 3 files changed, 16 insertions(+), 32 deletions(-)
+
+diff --git a/library/ssl_cli.c b/library/ssl_cli.c
+index a8f61a466..7fbb5452f 100644
+--- a/library/ssl_cli.c
++++ b/library/ssl_cli.c
+@@ -1546,7 +1546,7 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+     if (((uint16_t)( ( buf[0]<<8 ) | buf[1] ) ) != 0x0002) { /* protection profile length must be 0x0002 as we must have only one protection profile in server Hello */
+         return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO );
+     } else {
+-        server_protection_profile_value = ( buf[2]<<8 ) | buf[3];
++        server_protection_profile_value = ( buf[2] << 8 ) | buf[3];
+     }
+ 
+     ssl->dtls_srtp_info.chosen_dtls_srtp_profile = MBEDTLS_SRTP_UNSET_PROFILE;
+diff --git a/library/ssl_srv.c b/library/ssl_srv.c
+index 604266d1e..81e6b72fd 100644
+--- a/library/ssl_srv.c
++++ b/library/ssl_srv.c
+@@ -691,13 +691,13 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+      *
+      */
+ 
+-    /* Min length is 5 : at least one protection profile(2 bytes) and length(2 bytes) + srtp_mki length(1 byte) */
++    /* Min length is 5: at least one protection profile(2 bytes) and length(2 bytes) + srtp_mki length(1 byte) */
+     if( len < 5 )
+         return( MBEDTLS_ERR_SSL_BAD_HS_CLIENT_HELLO );
+ 
+    ssl->dtls_srtp_info.chosen_dtls_srtp_profile = MBEDTLS_SRTP_UNSET_PROFILE;
+ 
+-    profile_length = ( buf[0]<<8 ) | buf[1]; /* first 2 bytes are protection profile length(in bytes) */
++    profile_length = ( buf[0] << 8 ) | buf[1]; /* first 2 bytes are protection profile length(in bytes) */
+ 
+ 
+     /* parse the extension list values are defined in http://www.iana.org/assignments/srtp-protection/srtp-protection.xhtml */
+@@ -747,9 +747,10 @@ static int ssl_parse_use_srtp_ext( mbedtls_ssl_context *ssl,
+             return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO );
+         }
+ 
++        ssl->dtls_srtp_info.mki_len = buf[ profile_length + 2 ];
+         for( i=0; i < ssl->dtls_srtp_info.mki_len; i++ )
+         {
+-            ssl->dtls_srtp_info.mki_value[i] = buf[ profile_length + 2 + i ];
++            ssl->dtls_srtp_info.mki_value[i] = buf[ profile_length + 2 + 1 + i ];
+         }
+     }
+ 
+diff --git a/programs/ssl/ssl_server2.c b/programs/ssl/ssl_server2.c
+index aebf6f989..ab34e2eaf 100644
+--- a/programs/ssl/ssl_server2.c
++++ b/programs/ssl/ssl_server2.c
+@@ -161,7 +161,7 @@ int main( void )
+ #define DFL_ETM                 -1
+ #define DFL_USE_SRTP            0
+ #define DFL_SRTP_FORCE_PROFILE  MBEDTLS_SRTP_UNSET_PROFILE
+-#define DFL_SRTP_MKI            ""
++#define DFL_SRTP_SUPPORT_MKI    0
+ 
+ #define LONG_RESPONSE "<p>01-blah-blah-blah-blah-blah-blah-blah-blah-blah\r\n" \
+     "02-blah-blah-blah-blah-blah-blah-blah-blah-blah-blah-blah-blah-blah\r\n"  \
+@@ -336,7 +336,7 @@ int main( void )
+     "                        2 - SRTP_AES128_CM_HMAC_SHA1_32\n"  \
+     "                        3 - SRTP_NULL_HMAC_SHA1_80\n"       \
+     "                        4 - SRTP_NULL_HMAC_SHA1_32\n"       \
+-    "    mki=%%s              default: \"\" (in hex, without 0x)\n"
++    "    support_mki=%%d     default: 0 (not supported)\n"
+ #else
+ #define USAGE_SRTP ""
+ #endif
+@@ -526,7 +526,7 @@ struct options
+     int badmac_limit;           /* Limit of records with bad MAC            */
+     int use_srtp;               /* Support SRTP                             */
+     int force_srtp_profile;     /* SRTP protection profile to use or all    */
+-    const char* mki;            /* The dtls mki value to use                */
++    int support_mki;            /* The dtls mki mki support                 */
+ } opt;
+ 
+ int query_config( const char *config );
+@@ -1292,10 +1292,6 @@ int main( int argc, char *argv[] )
+ #endif
+ #if defined(MBEDTLS_MEMORY_BUFFER_ALLOC_C)
+     unsigned char alloc_buf[MEMORY_HEAP_SIZE];
+-#endif
+-#if defined(MBEDTLS_SSL_DTLS_SRTP)
+-    unsigned char mki[MBEDTLS_DTLS_SRTP_MAX_MKI_LENGTH];
+-    size_t mki_len = 0;
+ #endif
+     int i;
+     char *p, *q;
+@@ -1425,7 +1421,7 @@ int main( int argc, char *argv[] )
+     opt.etm                 = DFL_ETM;
+     opt.use_srtp            = DFL_USE_SRTP;
+     opt.force_srtp_profile  = DFL_SRTP_FORCE_PROFILE;
+-    opt.mki                 = DFL_SRTP_MKI;
++    opt.support_mki         = DFL_SRTP_SUPPORT_MKI;
+ 
+     for( i = 1; i < argc; i++ )
+     {
+@@ -1814,9 +1810,9 @@ int main( int argc, char *argv[] )
+         {
+             opt.force_srtp_profile = atoi( q );
+         }
+-        else if( strcmp( p, "mki" ) == 0 )
++        else if( strcmp( p, "support_mki" ) == 0 )
+         {
+-            opt.mki = q;
++            opt.support_mki = atoi( q );
+         }
+         else
+             goto usage;
+@@ -2341,6 +2337,11 @@ int main( int argc, char *argv[] )
+             goto exit;
+         }
+ 
++        mbedtls_ssl_conf_srtp_mki_value_supported( &conf,
++                                                   opt.support_mki ?
++                                                   MBEDTLS_SSL_DTLS_SRTP_MKI_SUPPORTED :
++                                                   MBEDTLS_SSL_DTLS_SRTP_MKI_UNSUPPORTED );
++
+     }
+     else if( opt.force_srtp_profile != DFL_SRTP_FORCE_PROFILE )
+     {
+@@ -2667,24 +2668,6 @@ int main( int argc, char *argv[] )
+                                             mbedtls_timing_get_delay );
+ #endif
+ 
+-#if defined(MBEDTLS_SSL_DTLS_SRTP)
+-    if( opt.use_srtp != DFL_USE_SRTP &&  strlen( opt.mki ) != 0 )
+-    {
+-        if( unhexify( mki, opt.mki, &mki_len ) != 0 )
+-        {
+-            mbedtls_printf( "mki value not valid hex\n" );
+-             goto exit;
+-        }
+-
+-        mbedtls_ssl_conf_srtp_mki_value_supported( &conf, MBEDTLS_SSL_DTLS_SRTP_MKI_SUPPORTED );
+-        if( ( ret = mbedtls_ssl_dtls_srtp_set_mki_value( &ssl, mki, mki_len) ) != 0 )
+-        {
+-            mbedtls_printf( " failed\n  ! mbedtls_ssl_dtls_srtp_set_mki_value returned %d\n\n", ret );
+-            goto exit;
+-        }
+-    }
+-#endif
+-
+     mbedtls_printf( " ok\n" );
+ 
+ reset:
+-- 
+2.17.1
+

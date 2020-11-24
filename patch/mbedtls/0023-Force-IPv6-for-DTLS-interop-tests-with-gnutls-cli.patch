@@ -1,0 +1,124 @@
+From 1d0e713b35eb34b0cb73f1837e01787ad70ba22e Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Wed, 11 Jul 2018 11:53:37 +0300
+Subject: [PATCH 23/43] Force IPv6 for DTLS interop tests with gnutls-cli
+
+Since `gnutls-cli` resolves `localhost` as an IPv6 address, and the server
+is bound to IPv4 address, gnutl-cli fails to negotiate DTLS sessions.
+Force the server to bind to IPv6 address, as a workaround.
+---
+ tests/ssl-opt.sh | 42 +++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 35 insertions(+), 7 deletions(-)
+
+diff --git a/tests/ssl-opt.sh b/tests/ssl-opt.sh
+index 1f24f908d..6c49944a0 100755
+--- a/tests/ssl-opt.sh
++++ b/tests/ssl-opt.sh
+@@ -7160,9 +7160,13 @@ run_test  "DTLS-SRTP all profiles supported. server doesn't support mki. openssl
+           -C "dumping 'received mki' (8 bytes)" \
+           -C "error"
+ 
++# gnutls-cli resolves localhost as an IPv6 address, when enabled,
++# and fails to send messagges over UDP, causing DTLS negotiation to fail.
++# Force server to bind to IPv6 address
++requires_ipv6
+ requires_config_enabled MBEDTLS_SSL_DTLS_SRTP
+ run_test  "DTLS-SRTP all profiles supported. gnutls client." \
+-          "$P_SRV dtls=1 use_srtp=1 debug_level=3" \
++          "$P_SRV dtls=1 use_srtp=1 debug_level=3 server_addr=::1" \
+           "$G_CLI -u --srtp-profiles=SRTP_AES128_CM_HMAC_SHA1_80:SRTP_AES128_CM_HMAC_SHA1_32:SRTP_NULL_HMAC_SHA1_80:SRTP_NULL_SHA1_32" \
+           0 \
+           -s "found use_srtp extension" \
+@@ -7171,9 +7175,13 @@ run_test  "DTLS-SRTP all profiles supported. gnutls client." \
+           -s "server hello, adding use_srtp extension" \
+           -c "SRTP profile: SRTP_AES128_CM_HMAC_SHA1_80"
+ 
++# gnutls-cli resolves localhost as an IPv6 address, when enabled,
++# and fails to send messagges over UDP, causing DTLS negotiation to fail.
++# Force server to bind to IPv6 address
++requires_ipv6
+ requires_config_enabled MBEDTLS_SSL_DTLS_SRTP
+ run_test  "DTLS-SRTP server supports all profiles. Client supports all profiles, in different order. gnutls client." \
+-          "$P_SRV dtls=1 use_srtp=1 debug_level=3" \
++          "$P_SRV dtls=1 use_srtp=1 debug_level=3 server_addr=::1" \
+           "$G_CLI -u --srtp-profiles=SRTP_NULL_HMAC_SHA1_80:SRTP_AES128_CM_HMAC_SHA1_80:SRTP_NULL_SHA1_32:SRTP_AES128_CM_HMAC_SHA1_32" \
+           0 \
+           -s "found use_srtp extension" \
+@@ -7182,9 +7190,13 @@ run_test  "DTLS-SRTP server supports all profiles. Client supports all profiles,
+           -s "server hello, adding use_srtp extension" \
+           -c "SRTP profile: SRTP_NULL_HMAC_SHA1_80"
+ 
++# gnutls-cli resolves localhost as an IPv6 address, when enabled,
++# and fails to send messagges over UDP, causing DTLS negotiation to fail.
++# Force server to bind to IPv6 address
++requires_ipv6
+ requires_config_enabled MBEDTLS_SSL_DTLS_SRTP
+ run_test  "DTLS-SRTP server supports all profiles. Client supports one profile. gnutls client." \
+-          "$P_SRV dtls=1 use_srtp=1 debug_level=3" \
++          "$P_SRV dtls=1 use_srtp=1 debug_level=3 server_addr=::1" \
+           "$G_CLI -u --srtp-profiles=SRTP_AES128_CM_HMAC_SHA1_32" \
+           0 \
+           -s "found use_srtp extension" \
+@@ -7193,9 +7205,13 @@ run_test  "DTLS-SRTP server supports all profiles. Client supports one profile.
+           -s "server hello, adding use_srtp extension" \
+           -c "SRTP profile: SRTP_AES128_CM_HMAC_SHA1_32"
+ 
++# gnutls-cli resolves localhost as an IPv6 address, when enabled,
++# and fails to send messagges over UDP, causing DTLS negotiation to fail.
++# Force server to bind to IPv6 address
++requires_ipv6
+ requires_config_enabled MBEDTLS_SSL_DTLS_SRTP
+ run_test  "DTLS-SRTP server supports one profile. Client supports all profiles. gnutls client." \
+-          "$P_SRV dtls=1 use_srtp=1 srtp_force_profile=4 debug_level=3" \
++          "$P_SRV dtls=1 use_srtp=1 srtp_force_profile=4 debug_level=3 server_addr=::1" \
+           "$G_CLI -u --srtp-profiles=SRTP_AES128_CM_HMAC_SHA1_80:SRTP_AES128_CM_HMAC_SHA1_32:SRTP_NULL_HMAC_SHA1_80:SRTP_NULL_SHA1_32" \
+           0 \
+           -s "found use_srtp extension" \
+@@ -7204,9 +7220,13 @@ run_test  "DTLS-SRTP server supports one profile. Client supports all profiles.
+           -s "server hello, adding use_srtp extension" \
+           -c "SRTP profile: SRTP_NULL_SHA1_32"
+ 
++# gnutls-cli resolves localhost as an IPv6 address, when enabled,
++# and fails to send messagges over UDP, causing DTLS negotiation to fail.
++# Force server to bind to IPv6 address
++requires_ipv6
+ requires_config_enabled MBEDTLS_SSL_DTLS_SRTP
+ run_test  "DTLS-SRTP server and Client support only one matching profile. gnutls client." \
+-          "$P_SRV dtls=1 use_srtp=1 srtp_force_profile=2 debug_level=3" \
++          "$P_SRV dtls=1 use_srtp=1 srtp_force_profile=2 debug_level=3 server_addr=::1" \
+           "$G_CLI -u --srtp-profiles=SRTP_AES128_CM_HMAC_SHA1_32" \
+           0 \
+           -s "found use_srtp extension" \
+@@ -7215,9 +7235,13 @@ run_test  "DTLS-SRTP server and Client support only one matching profile. gnutls
+           -s "server hello, adding use_srtp extension" \
+           -c "SRTP profile: SRTP_AES128_CM_HMAC_SHA1_32"
+ 
++# gnutls-cli resolves localhost as an IPv6 address, when enabled,
++# and fails to send messagges over UDP, causing DTLS negotiation to fail.
++# Force server to bind to IPv6 address
++requires_ipv6
+ requires_config_enabled MBEDTLS_SSL_DTLS_SRTP
+ run_test  "DTLS-SRTP server and Client support only one different profile. gnutls client." \
+-          "$P_SRV dtls=1 use_srtp=1 srtp_force_profile=1 debug_level=3" \
++          "$P_SRV dtls=1 use_srtp=1 srtp_force_profile=1 debug_level=3 server_addr=::1" \
+           "$G_CLI -u --srtp-profiles=SRTP_AES128_CM_HMAC_SHA1_32" \
+           0 \
+           -s "found use_srtp extension" \
+@@ -7226,9 +7250,13 @@ run_test  "DTLS-SRTP server and Client support only one different profile. gnutl
+           -S "server hello, adding use_srtp extension" \
+           -C "SRTP profile:"
+ 
++# gnutls-cli resolves localhost as an IPv6 address, when enabled,
++# and fails to send messagges over UDP, causing DTLS negotiation to fail.
++# Force server to bind to IPv6 address
++requires_ipv6
+ requires_config_enabled MBEDTLS_SSL_DTLS_SRTP
+ run_test  "DTLS-SRTP server doesn't support use_srtp extension. gnutls client" \
+-          "$P_SRV dtls=1 debug_level=3" \
++          "$P_SRV dtls=1 debug_level=3 server_addr=::1" \
+           "$G_CLI -u --srtp-profiles=SRTP_AES128_CM_HMAC_SHA1_80:SRTP_AES128_CM_HMAC_SHA1_32:SRTP_NULL_HMAC_SHA1_80:SRTP_NULL_SHA1_32" \
+           0 \
+           -s "found use_srtp extension" \
+-- 
+2.17.1
+

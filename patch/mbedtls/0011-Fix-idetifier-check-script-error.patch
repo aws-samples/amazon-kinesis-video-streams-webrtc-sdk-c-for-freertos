@@ -1,0 +1,27 @@
+From 81832ae84684c792d082f00df492843e1f0b2c40 Mon Sep 17 00:00:00 2001
+From: Ron Eldor <Ron.Eldor@arm.com>
+Date: Thu, 29 Mar 2018 18:35:09 +0300
+Subject: [PATCH 11/43] Fix idetifier check script error
+
+Fix script error for identifier check
+---
+ include/mbedtls/ssl.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/include/mbedtls/ssl.h b/include/mbedtls/ssl.h
+index 73a960f89..1b581e59a 100644
+--- a/include/mbedtls/ssl.h
++++ b/include/mbedtls/ssl.h
+@@ -820,7 +820,8 @@ typedef struct mbedtls_dtls_srtp_info_t
+     size_t dtls_srtp_keys_len; /*!< length in bytes of master keys and master salt for SRTP generated during handshake */
+     unsigned char mki_value[MBEDTLS_DTLS_SRTP_MAX_MKI_LENGTH]; /* opaque srtp_mki<0..255> */
+     size_t                 mki_len;
+-}mbedtls_dtls_srtp_info;
++}
++mbedtls_dtls_srtp_info;
+ 
+ #endif /* MBEDTLS_SSL_DTLS_SRTP */
+ 
+-- 
+2.17.1
+

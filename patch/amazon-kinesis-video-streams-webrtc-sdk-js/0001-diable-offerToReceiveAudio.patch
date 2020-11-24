@@ -1,0 +1,25 @@
+From d0fe711b29e2798fc5f2c33d7bfce5f8b58b0a0b Mon Sep 17 00:00:00 2001
+From: ycyang <yc.yang1229@gmail.com>
+Date: Thu, 15 Oct 2020 10:30:23 +0800
+Subject: [PATCH] diable offerToReceiveAudio.
+
+---
+ examples/viewer.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/examples/viewer.js b/examples/viewer.js
+index 872f94d..d8e9a4e 100644
+--- a/examples/viewer.js
++++ b/examples/viewer.js
+@@ -128,7 +128,7 @@ async function startViewer(localView, remoteView, formValues, onStatsReport, onR
+         console.log('[VIEWER] Creating SDP offer');
+         await viewer.peerConnection.setLocalDescription(
+             await viewer.peerConnection.createOffer({
+-                offerToReceiveAudio: true,
++                //offerToReceiveAudio: true,
+                 offerToReceiveVideo: true,
+             }),
+         );
+-- 
+2.17.1
+
