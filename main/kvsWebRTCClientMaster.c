@@ -56,7 +56,7 @@ INT32 kvsWebRTCClientMaster(void)
     
     printf("[KVS Master] Finished setting audio and video handlers\n");
 
-    // Check if the samples are present, #YC_TBD, move to another place, or remove it.
+    // Check if the samples are present, #TBD, move to another place, or remove it.
     #if 1
     retStatus = readFrameFromDisk(NULL, &frameSize, "/sdcard/h264SampleFrames/frame-0001.h264");
     if (retStatus != STATUS_SUCCESS) {

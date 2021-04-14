@@ -1010,16 +1010,18 @@ STATUS submitPendingIceCandidate(PStackQueue pPendingMessageQueue, PSampleStream
             hashValue = 0;
             CHK_STATUS(stackQueueDequeue(pPendingMessageQueue, &hashValue));
             pReceivedSignalingMessage = (PReceivedSignalingMessage) hashValue;
+            CHK(pReceivedSignalingMessage != NULL, STATUS_INTERNAL_ERROR);
             if (pReceivedSignalingMessage->signalingMessage.messageType == SIGNALING_MESSAGE_TYPE_ICE_CANDIDATE) {
                 CHK_STATUS(handleRemoteCandidate(pSampleStreamingSession, &pReceivedSignalingMessage->signalingMessage));
             }
-            MEMFREE(pReceivedSignalingMessage);
+            SAFE_MEMFREE(pReceivedSignalingMessage);
         }
     } while (!noPendingSignalingMessageForClient);
     CHK_STATUS(stackQueueFree(pPendingMessageQueue));
 
 CleanUp:
 
+    SAFE_MEMFREE(pReceivedSignalingMessage);
     CHK_LOG_ERR(retStatus);
     return retStatus;
 }
@@ -1079,6 +1081,9 @@ STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pRe
                 pPendingMessageQueue = (PStackQueue) hashValue;
 
                 CHK_STATUS(submitPendingIceCandidate(pPendingMessageQueue, pSampleStreamingSession));
+                // NULL the pointer to avoid it being freed in the cleanup
+                pPendingMessageQueue = NULL;
+
                 CHK_STATUS(hashTableRemove(pSampleConfiguration->pPendingSignalingMessageForRemoteClient, clientIdHash));
             }
             break;
@@ -1100,6 +1105,8 @@ STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pRe
             if (STATUS_SUCCEEDED(hashTableGet(pSampleConfiguration->pPendingSignalingMessageForRemoteClient, clientIdHash, &hashValue))) {
                 pPendingMessageQueue = (PStackQueue) hashValue;
                 CHK_STATUS(submitPendingIceCandidate(pPendingMessageQueue, pSampleStreamingSession));
+                // NULL the pointer to avoid it being freed in the cleanup
+                pPendingMessageQueue = NULL;
                 CHK_STATUS(hashTableRemove(pSampleConfiguration->pPendingSignalingMessageForRemoteClient, clientIdHash));
             }
             break;
@@ -1119,12 +1126,18 @@ STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pRe
                     CHK_STATUS(stackQueueCreate(&pPendingMessageQueue));
                     CHK_STATUS(
                         hashTablePut(pSampleConfiguration->pPendingSignalingMessageForRemoteClient, clientIdHash, (UINT64) pPendingMessageQueue));
+                } else {
+                    pPendingMessageQueue = (PStackQueue) hashValue;
                 }
 
-                pReceivedSignalingMessageCopy = MEMCALLOC(1, SIZEOF(ReceivedSignalingMessage));
+                pReceivedSignalingMessageCopy = (PReceivedSignalingMessage) MEMCALLOC(1, SIZEOF(ReceivedSignalingMessage));
                 *pReceivedSignalingMessageCopy = *pReceivedSignalingMessage;
 
                 CHK_STATUS(stackQueueEnqueue(pPendingMessageQueue, (UINT64) pReceivedSignalingMessageCopy));
+
+                // NULL the pointers to not free any longer
+                pPendingMessageQueue = NULL;
+                pReceivedSignalingMessageCopy = NULL;
             } else {
                 DLOGD("handle the ice candidates.");
                 CHK_STATUS(handleRemoteCandidate(pSampleStreamingSession, &pReceivedSignalingMessage->signalingMessage));
@@ -1137,6 +1150,12 @@ STATUS signalingMessageReceived(UINT64 customData, PReceivedSignalingMessage pRe
     }
 
 CleanUp:
+
+
+    SAFE_MEMFREE(pReceivedSignalingMessageCopy);
+    if (pPendingMessageQueue != NULL) {
+        stackQueueFree(pPendingMessageQueue);
+    }
 
     if (locked) {
         MUTEX_UNLOCK(pSampleConfiguration->sampleConfigurationObjLock);
