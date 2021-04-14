@@ -78,7 +78,7 @@ add_subdirectory(lib/amazon-kinesis-video-streams-pic)
 target_link_libraries(${COMPONENT_LIB} PUBLIC kvspicState kvspicUtils)
 
 message("############################## start producer c ##############################")
-## this needs to be fixed. #YC_TBD.
+## this needs to be fixed. #TBD.
 set(BUILD_DEPENDENCIES OFF CACHE BOOL "Whether or not to build depending libraries from source")
 set(USE_OPENSSL OFF CACHE BOOL "Use openssl as crypto library")
 set(USE_MBEDTLS ON CACHE BOOL "Use openssl as crypto library")
