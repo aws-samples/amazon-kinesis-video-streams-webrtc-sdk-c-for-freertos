@@ -87,19 +87,19 @@ INT32 kvsWebRTCClientMaster(void)
 
     strcpy(pSampleConfiguration->clientInfo.clientId, SAMPLE_MASTER_CLIENT_ID);
 
-    retStatus = createSignalingClientSync(&pSampleConfiguration->clientInfo, &pSampleConfiguration->channelInfo,
+    retStatus = signalingClientCreate(&pSampleConfiguration->clientInfo, &pSampleConfiguration->channelInfo,
                                           &pSampleConfiguration->signalingClientCallbacks, pSampleConfiguration->pCredentialProvider,
                                           &pSampleConfiguration->signalingClientHandle);
     if (retStatus != STATUS_SUCCESS) {
-        printf("[KVS Master] createSignalingClientSync(): operation returned status code: 0x%08x \n", retStatus);
+        printf("[KVS Master] signalingClientCreate(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
     }
     printf("[KVS Master] Signaling client created successfully\n");
 
     // Enable the processing of the messages
-    retStatus = signalingClientConnectSync(pSampleConfiguration->signalingClientHandle);
+    retStatus = signalingClientConnect(pSampleConfiguration->signalingClientHandle);
     if (retStatus != STATUS_SUCCESS) {
-        printf("[KVS Master] signalingClientConnectSync(): operation returned status code: 0x%08x \n", retStatus);
+        printf("[KVS Master] signalingClientConnect(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
     }
     printf("[KVS Master] Signaling client connection to socket established\n");
@@ -148,9 +148,9 @@ CleanUp:
         } else {
             printf("[KVS Master] signalingClientGetMetrics() operation returned status code: 0x%08x", retStatus);
         }
-        retStatus = freeSignalingClient(&pSampleConfiguration->signalingClientHandle);
+        retStatus = signalingClientFree(&pSampleConfiguration->signalingClientHandle);
         if (retStatus != STATUS_SUCCESS) {
-            printf("[KVS Master] freeSignalingClient(): operation returned status code: 0x%08x", retStatus);
+            printf("[KVS Master] signalingClientFree(): operation returned status code: 0x%08x", retStatus);
         }
 
         retStatus = freeSampleConfiguration(&pSampleConfiguration);
