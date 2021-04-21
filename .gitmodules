@@ -13,3 +13,6 @@
 [submodule "main/lib/amazon-kinesis-video-streams-webrtc-sdk-c"]
 	path = main/lib/amazon-kinesis-video-streams-webrtc-sdk-c
 	url = https://github.com/iotlabtpe/amazon-kinesis-video-streams-webrtc-sdk-c.git
+[submodule "main/lib/usrsctp"]
+	path = main/lib/usrsctp
+	url = git@github.com:ycyang1229/usrsctp.git
