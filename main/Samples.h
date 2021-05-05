@@ -38,6 +38,15 @@ extern "C" {
 #define SAMPLE_HASH_TABLE_BUCKET_COUNT  50
 #define SAMPLE_HASH_TABLE_BUCKET_LENGTH 2
 
+#define SAMPLE_VIDEO_THREAD_NAME "videosource"
+#define SAMPLE_VIDEO_THREAD_SIZE 4096
+
+#define SAMPLE_AUDIO_THREAD_NAME "audiosource"
+#define SAMPLE_AUDIO_THREAD_SIZE 4096
+
+#define SAMPLE_TIMER_NAME "sampleTimer"
+#define SAMPLE_TIMER_SIZE 10240
+
 typedef enum {
     SAMPLE_STREAMING_VIDEO_ONLY,
     SAMPLE_STREAMING_AUDIO_VIDEO,
@@ -127,6 +136,7 @@ struct __SampleStreamingSession {
     // this is called when the SampleStreamingSession is being freed
     StreamSessionShutdownCallback shutdownCallback;
     UINT64 shutdownCallbackCustomData;
+    PRtcDataChannel pRtcDataChannel;
 };
 
 VOID sigintHandler(INT32);

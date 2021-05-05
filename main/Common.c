@@ -12,16 +12,30 @@ VOID sigintHandler(INT32 sigNum)
     }
 }
 #ifdef ENABLE_DATA_CHANNEL
-VOID onDataChannelMessage(UINT64 customData, PRtcDataChannel pDataChannel, BOOL isBinary, PBYTE pMessage, UINT32 pMessageLen)
+VOID onDataChannelMessageMaster(UINT64 customData, PRtcDataChannel pDataChannel, BOOL isBinary, PBYTE pMessage, UINT32 pMessageLen)
 {
     UNUSED_PARAM(customData);
     UNUSED_PARAM(pDataChannel);
     if (isBinary) {
         DLOGI("DataChannel Binary Message");
     } else {
-        DLOGI("DataChannel String Message: %.*s\n", pMessageLen, pMessage);
+        DLOGI("xDataChannel String Message: %.*s\n", pMessageLen, pMessage);
     }
 }
+
+VOID onDataChannelMessage(UINT64 customData, PRtcDataChannel pDataChannel, BOOL isBinary, PBYTE pMessage, UINT32 pMessageLen)
+{
+    PSampleStreamingSession session = (PSampleStreamingSession)customData;
+    UNUSED_PARAM(pDataChannel);
+    if (isBinary) {
+        DLOGI("DataChannel Binary Message");
+    } else {
+        DLOGI("DataChannel String Message: %.*s\n", pMessageLen, pMessage);
+        // master echo
+        dataChannelSend(session->pRtcDataChannel, isBinary, pMessage, pMessageLen);
+    }
+}
+
 VOID onDataChannel(UINT64 customData, PRtcDataChannel pRtcDataChannel)
 {
     DLOGI("New DataChannel has been opened %s \n", pRtcDataChannel->name);
@@ -160,11 +174,11 @@ STATUS handleOffer(PSampleConfiguration pSampleConfiguration, PSampleStreamingSe
     if (!ATOMIC_LOAD_BOOL(&pSampleConfiguration->mediaThreadStarted)) {
         ATOMIC_STORE_BOOL(&pSampleConfiguration->mediaThreadStarted, TRUE);
         if (pSampleConfiguration->videoSource != NULL) {
-            THREAD_CREATE(&pSampleConfiguration->videoSenderTid, pSampleConfiguration->videoSource, (PVOID) pSampleConfiguration);
+            THREAD_CREATE_EX(&pSampleConfiguration->videoSenderTid, SAMPLE_VIDEO_THREAD_NAME, SAMPLE_VIDEO_THREAD_SIZE, pSampleConfiguration->videoSource, (PVOID) pSampleConfiguration);
         }
 
         if (pSampleConfiguration->audioSource != NULL) {
-            THREAD_CREATE(&pSampleConfiguration->audioSenderTid, pSampleConfiguration->audioSource, (PVOID) pSampleConfiguration);
+            THREAD_CREATE_EX(&pSampleConfiguration->audioSenderTid, SAMPLE_AUDIO_THREAD_NAME, SAMPLE_AUDIO_THREAD_SIZE, pSampleConfiguration->audioSource, (PVOID) pSampleConfiguration);
         }
 
         if ((retStatus = timerQueueAddTimer(pSampleConfiguration->timerQueueHandle, SAMPLE_STATS_DURATION, SAMPLE_STATS_DURATION,
@@ -432,6 +446,7 @@ STATUS createSampleStreamingSession(PSampleConfiguration pSampleConfiguration, P
 
     // Declare that we support H264,Profile=42E01F,level-asymmetry-allowed=1,packetization-mode=1 and Opus
     // Add a SendRecv Transceiver of type video
+#ifdef ENABLE_STREAMING
     CHK_STATUS(addSupportedCodec(pSampleStreamingSession->pPeerConnection, RTC_CODEC_H264_PROFILE_42E01F_LEVEL_ASYMMETRY_ALLOWED_PACKETIZATION_MODE));
     pVideoTrack->kind = MEDIA_STREAM_TRACK_KIND_VIDEO;
     pVideoTrack->codec = RTC_CODEC_H264_PROFILE_42E01F_LEVEL_ASYMMETRY_ALLOWED_PACKETIZATION_MODE;
@@ -456,8 +471,13 @@ STATUS createSampleStreamingSession(PSampleConfiguration pSampleConfiguration, P
 
     CHK_STATUS(transceiverOnBandwidthEstimation(pSampleStreamingSession->pAudioRtcRtpTransceiver, (UINT64) pSampleStreamingSession,
                                                 sampleBandwidthEstimationHandler));
+#endif
     pSampleStreamingSession->firstFrame = TRUE;
     pSampleStreamingSession->startUpLatency = 0;
+#ifdef ENABLE_DATA_CHANNEL
+    CHK_STATUS(createDataChannel(pSampleStreamingSession->pPeerConnection, "kvsDataChannelMaster", NULL, &pSampleStreamingSession->pRtcDataChannel));
+    CHK_LOG_ERR(dataChannelOnMessage(pSampleStreamingSession->pRtcDataChannel, 0, onDataChannelMessageMaster));
+#endif
 CleanUp:
 
     if (STATUS_FAILED(retStatus) && pSampleStreamingSession != NULL) {
@@ -694,7 +714,7 @@ STATUS createSampleConfiguration(PCHAR channelName, SIGNALING_CHANNEL_ROLE_TYPE 
     ATOMIC_STORE_BOOL(&pSampleConfiguration->appTerminateFlag, FALSE);
     ATOMIC_STORE_BOOL(&pSampleConfiguration->recreateSignalingClient, FALSE);
 
-    CHK_STATUS(timerQueueCreate(&pSampleConfiguration->timerQueueHandle));
+    CHK_STATUS(timerQueueCreateEx(&pSampleConfiguration->timerQueueHandle, SAMPLE_TIMER_NAME, SAMPLE_TIMER_SIZE));
 
     pSampleConfiguration->iceUriCount = 0;
 

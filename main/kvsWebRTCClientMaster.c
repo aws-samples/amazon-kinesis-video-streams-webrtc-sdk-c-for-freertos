@@ -39,32 +39,31 @@ INT32 kvsWebRTCClientMaster(void)
     }
 
     // Set the audio and video handlers
+#ifdef ENABLE_STREAMING
     #if 0
     pSampleConfiguration->audioSource = sendAudioPackets;
     #endif
-    #if 1
     pSampleConfiguration->videoSource = sendVideoPackets;
-    #endif
     #if 0
     pSampleConfiguration->receiveAudioVideoSource = sampleReceiveVideoFrame;
     #endif
-    #if 0
+#endif
+#ifdef ENABLE_DATA_CHANNEL
     pSampleConfiguration->onDataChannel = onDataChannel;
-    #endif
+#endif
     //pSampleConfiguration->mediaType = SAMPLE_STREAMING_AUDIO_VIDEO;
     pSampleConfiguration->mediaType = SAMPLE_STREAMING_VIDEO_ONLY;
     
     printf("[KVS Master] Finished setting audio and video handlers\n");
 
     // Check if the samples are present, #TBD, move to another place, or remove it.
-    #if 1
+#ifdef ENABLE_STREAMING
     retStatus = readFrameFromDisk(NULL, &frameSize, "/sdcard/h264SampleFrames/frame-0001.h264");
     if (retStatus != STATUS_SUCCESS) {
         printf("[KVS Master] readFrameFromDisk(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
     }
     printf("[KVS Master] Checked sample video frame availability....available\n");
-    #endif
     #if 0
     retStatus = readFrameFromDisk(NULL, &frameSize, "./opusSampleFrames/sample-001.opus");
     if (retStatus != STATUS_SUCCESS) {
@@ -73,8 +72,7 @@ INT32 kvsWebRTCClientMaster(void)
     }
     printf("[KVS Master] Checked sample audio frame availability....available\n");
     #endif
-    
-
+#endif
     // Initialize KVS WebRTC. This must be done before anything else, and must only be done once.
     retStatus = initKvsWebRtc();
     if (retStatus != STATUS_SUCCESS) {
@@ -168,6 +166,7 @@ CleanUp:
     return STATUS_FAILED(retStatus) ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
+#ifdef ENABLE_STREAMING
 STATUS readFrameFromDisk(PBYTE pFrame, PUINT32 pSize, PCHAR frameFilePath)
 {
     STATUS retStatus = STATUS_SUCCESS;
@@ -372,3 +371,4 @@ CleanUp:
 
     return (PVOID)(ULONG_PTR) retStatus;
 }
+#endif
