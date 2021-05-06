@@ -1,3 +1,6 @@
+option(ENABLE_STREAMING "enable the streaming" ON)
+option(ENABLE_DATA_CHANNEL "enable the data channel" OFF)
+
 set(LIB_SOURCE_DIR "${CMAKE_SOURCE_DIR}/main/lib")
 set(LIBKVSPIC_NAME "amazon-kinesis-video-streams-pic")
 set(LIBKVSPIC_INCLUDE_DIRS "${LIB_SOURCE_DIR}/${LIBKVSPIC_NAME}/src/common/include" 
@@ -17,23 +20,38 @@ set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/includ
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/PeerConnection"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Rtcp"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Rtp"
-                                "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Sctp"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Sdp"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Signaling"
-                                "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Srtp"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Stun")
 
 set(OPEN_SRC_INCLUDE_DIRS "${LIBKVSPIC_INCLUDE_DIRS}" "${LIBKVSCOMMONLWS_INCLUDE_DIRS}" "${LIBKVSWEBRTC_INCLUDE_DIRS}")
 idf_component_register(SRCS "kvswebrtc_example_main.c" "Common.c" "kvsWebRTCClientMaster.c"
                     INCLUDE_DIRS "." "${OPEN_SRC_INCLUDE_DIRS}"
-                    REQUIRES nvs_flash mbedtls lwip fatfs
+                    REQUIRES nvs_flash mbedtls lwip fatfs esp_common pthread
                     EMBED_FILES "cert.pem")
 
 
 idf_component_get_property(nvs_flash_lib nvs_flash COMPONENT_LIB)
 idf_component_get_property(mbedtls_lib mbedtls COMPONENT_LIB)
+idf_component_get_property(esp_common_lib esp_common COMPONENT_LIB)
+idf_component_get_property(pthread_lib pthread COMPONENT_LIB)
 
+set(KVS_PLAT_ESP_FREERTOS ON CACHE BOOL "Build for ESP FreeRTOS")
 add_definitions(-DKVS_PLAT_ESP_FREERTOS)
+if (ENABLE_STREAMING)
+        add_definitions(-DENABLE_STREAMING)
+        set(ENABLE_STREAMING ON CACHE BOOL "Enable support for streaming")
+        set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIBKVSWEBRTC_INCLUDE_DIRS}" "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Srtp")
+else()
+        set(ENABLE_STREAMING OFF CACHE BOOL "Enable support for streaming")
+endif()
+if (ENABLE_DATA_CHANNEL)
+        add_definitions(-DENABLE_DATA_CHANNEL)
+        set(ENABLE_DATA_CHANNEL ON CACHE BOOL "Enable support for data channel")
+        set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIBKVSWEBRTC_INCLUDE_DIRS}" "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Sctp")
+else()
+        set(ENABLE_DATA_CHANNEL OFF CACHE BOOL "Enable support for data channel")
+endif()
 
 message("############################## start libwebsockets ##############################")
 set(ESP_PLATFORM 1) 
@@ -61,31 +79,42 @@ set_property(TARGET websockets APPEND PROPERTY INTERFACE_LINK_LIBRARIES
 target_link_libraries(${COMPONENT_LIB} PUBLIC websockets)
 set(KVS_LIBWEBSOCKETS_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/esp-idf/main/lib/libwebsockets/include" "${LIB_SOURCE_DIR}/libwebsockets/include")
 
-message("############################## start srtp ##############################")
-set(KVS_PLAT_ESP_FREERTOS ON CACHE BOOL "Build for ESP FreeRTOS")
-add_subdirectory(lib/libsrtp)
-set_property(TARGET srtp2 APPEND PROPERTY LINK_LIBRARIES ${mbedtls_lib})
-set_property(TARGET srtp2 APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${mbedtls_lib})        
-target_link_libraries(${COMPONENT_LIB} PUBLIC srtp2)
-set(KVS_LIBSRTP_INCLUDE_DIRS "${LIB_SOURCE_DIR}/libsrtp/include")
 
-###
+if(ENABLE_STREAMING)
+        message("############################## start srtp ##############################")
+        add_subdirectory(lib/libsrtp)
+        set_property(TARGET srtp2 APPEND PROPERTY LINK_LIBRARIES ${mbedtls_lib})
+        set_property(TARGET srtp2 APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${mbedtls_lib})
+        target_link_libraries(${COMPONENT_LIB} PUBLIC srtp2)
+        set(KVS_LIBSRTP_INCLUDE_DIRS "${LIB_SOURCE_DIR}/libsrtp/include")
+endif()
 
-
+if(ENABLE_DATA_CHANNEL)
+        message("############################## start sctp ##############################")
+        add_definitions(-DSCTP_USE_LWIP)
+        add_definitions(-DSCTP_USE_RTOS)
+        add_subdirectory(lib/usrsctp)
+        set_property(TARGET usrsctp APPEND PROPERTY LINK_LIBRARIES ${mbedtls_lib} ${esp_common_lib} ${pthread_lib})
+        set_property(TARGET usrsctp APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${mbedtls_lib} ${esp_common_lib} ${pthread_lib})
+        target_link_libraries(${COMPONENT_LIB} PUBLIC usrsctp)
+        set(KVS_USRSCTP_INCLUDE_DIRS "${LIB_SOURCE_DIR}/usrsctp/usrsctplib")
+endif()
 
 message("############################## start pic ##############################")
 add_subdirectory(lib/amazon-kinesis-video-streams-pic)
+set_property(TARGET kvspicState APPEND PROPERTY LINK_LIBRARIES ${esp_common_lib} ${pthread_lib})
+set_property(TARGET kvspicState APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${esp_common_lib} ${pthread_lib})
+set_property(TARGET kvspicUtils APPEND PROPERTY LINK_LIBRARIES ${esp_common_lib} ${pthread_lib})
+set_property(TARGET kvspicUtils APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${esp_common_lib} ${pthread_lib})
 target_link_libraries(${COMPONENT_LIB} PUBLIC kvspicState kvspicUtils)
 
 message("############################## start producer c ##############################")
-## this needs to be fixed. #TBD.
 set(BUILD_DEPENDENCIES OFF CACHE BOOL "Whether or not to build depending libraries from source")
 set(USE_OPENSSL OFF CACHE BOOL "Use openssl as crypto library")
 set(USE_MBEDTLS ON CACHE BOOL "Use openssl as crypto library")
 set(BUILD_COMMON_LWS ON CACHE BOOL "Whether or not to build ProducerC libwebsockets common library")
 set(BUILD_COMMON_CURL OFF CACHE BOOL "Whether or not to build ProducerC curl common library")
 set(BUILD_KVSPIC OFF CACHE BOOL "Whether or not to build the part of kvs pic")
-set(KVS_PLAT_ESP_FREERTOS ON CACHE BOOL "Build for ESP FreeRTOS")
 set(OPEN_SRC_INCLUDE_DIRS "${OPEN_SRC_INCLUDE_DIRS}" "${KVS_LIBWEBSOCKETS_INCLUDE_DIRS}")
 add_subdirectory(lib/amazon-kinesis-video-streams-producer-c)
 
@@ -97,21 +126,18 @@ message("############################## start webrtc ###########################
 set(BUILD_DEPENDENCIES OFF CACHE BOOL "Whether or not to build depending libraries from source")
 set(BUILD_STATIC_LIBS ON CACHE BOOL "Build all libraries statically. (This includes third-party libraries.)")
 set(BUILD_SAMPLE OFF CACHE BOOL "Build available samples")
-set(ENABLE_DATA_CHANNEL OFF CACHE BOOL "Enable support for data channel")
-set(OPEN_SRC_INCLUDE_DIRS "${OPEN_SRC_INCLUDE_DIRS}" "${KVS_LIBWEBSOCKETS_INCLUDE_DIRS} ${KVS_LIBSRTP_INCLUDE_DIRS}")
+set(OPEN_SRC_INCLUDE_DIRS ${OPEN_SRC_INCLUDE_DIRS} ${KVS_LIBWEBSOCKETS_INCLUDE_DIRS} ${KVS_LIBSRTP_INCLUDE_DIRS} ${KVS_USRSCTP_INCLUDE_DIRS})
 
 add_subdirectory(lib/amazon-kinesis-video-streams-webrtc-sdk-c)
 
 set_property(TARGET kvsWebrtcSignalingClient APPEND PROPERTY LINK_LIBRARIES
         kvspicUtils
         websockets
-        srtp2
         ${mbedtls_lib}
         kvsCommonLws)
 set_property(TARGET kvsWebrtcSignalingClient APPEND PROPERTY INTERFACE_LINK_LIBRARIES
         kvspicUtils
         websockets
-        srtp2
         ${mbedtls_lib}
         kvsCommonLws)
 target_link_libraries(${COMPONENT_LIB} PUBLIC kvsWebrtcSignalingClient)
@@ -119,13 +145,26 @@ target_link_libraries(${COMPONENT_LIB} PUBLIC kvsWebrtcSignalingClient)
 set_property(TARGET kvsWebrtcClient APPEND PROPERTY LINK_LIBRARIES
         kvspicUtils
         mbedtls
-        srtp2
         ${mbedtls_lib}
         ${nvs_flash_lib})
+
+if(ENABLE_STREAMING)
+        set_property(TARGET kvsWebrtcClient APPEND PROPERTY LINK_LIBRARIES srtp2)
+endif()
+if(ENABLE_DATA_CHANNEL)
+        set_property(TARGET kvsWebrtcClient APPEND PROPERTY LINK_LIBRARIES usrsctp)
+endif()
+
 set_property(TARGET kvsWebrtcClient APPEND PROPERTY INTERFACE_LINK_LIBRARIES
         kvspicUtils
         mbedtls
-        srtp2
         ${mbedtls_lib}
         ${nvs_flash_lib})
+
+if(ENABLE_STREAMING)
+        set_property(TARGET kvsWebrtcClient APPEND PROPERTY INTERFACE_LINK_LIBRARIES srtp2)
+endif()
+if(ENABLE_DATA_CHANNEL)
+        set_property(TARGET kvsWebrtcClient APPEND PROPERTY INTERFACE_LINK_LIBRARIES usrsctp)
+endif()
 target_link_libraries(${COMPONENT_LIB} PUBLIC kvsWebrtcClient)

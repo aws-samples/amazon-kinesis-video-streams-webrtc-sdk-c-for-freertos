@@ -282,7 +282,53 @@ void app_main(void)
     setenv("AWS_SECRET_ACCESS_KEY", CONFIG_AWS_SECRET_ACCESS_KEY, 1);
     setenv("AWS_KVS_LOG_LEVEL", CONFIG_AWS_KVS_LOG_LEVEL, 1);
     setenv("AWS_DEFAULT_REGION", CONFIG_AWS_DEFAULT_REGION, 1);
-    
+    #if 0
+    {
+        #include <esp_netif.h>
+        uint32_t ifindex;
+        uint32_t ifNum = esp_netif_get_nr_of_ifs();
+        printf("ifNum:%d\n", ifNum);
+        esp_netif_t * cur = esp_netif_next(NULL);
+        for(ifindex = 0; ifindex<ifNum && cur != NULL; ifindex++){
+            esp_netif_ip_info_t ip_info;
+            esp_err_t err = esp_netif_get_ip_info(cur, &ip_info);
+            printf("type:%d", cur->lwip_netif->ip_addr.type);
+            printf(IPSTR"\n", IP2STR(&ip_info.ip));
+            cur = esp_netif_next(cur);
+        }
+        
+    }
+    #endif
+    #if 0
+    {
+        
+        uint32_t ifNum;
+        char if_name[256];
+        memset(if_name, 0, 256);
+        for(ifNum = 1; ifNum<256; ifNum++){
+            struct netif* tmp = netif_get_by_index(ifNum);
+            if(tmp != NULL){
+                char * tmp_name = netif_index_to_name(ifNum, if_name);
+                if(tmp_name != NULL){
+                    //IP_IS_V4_VAL
+                    //IP_IS_V4
+                    printf("if_name: %s\n", if_name);
+                    if(tmp->ip_addr.type == IPADDR_TYPE_V4){
+                        printf("ipv4\n");
+                    }else{
+                        printf("ipv6\n");
+                    }
+                    printf("%d:%d:%d:%d\n", ip4_addr1(&tmp->ip_addr.u_addr.ip4), 
+                                            ip4_addr2(&tmp->ip_addr.u_addr.ip4),
+                                            ip4_addr3(&tmp->ip_addr.u_addr.ip4),
+                                            ip4_addr4(&tmp->ip_addr.u_addr.ip4));
+                }
+            }
+
+        }
+    }
+    #endif
+
     kvsWebRTCClientMaster();
 
     // All done, unmount partition and disable SDMMC or SPI peripheral
