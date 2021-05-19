@@ -1,0 +1,25 @@
+From 39833d7151aba2d2fc9733ed7d0e42c428c2a4ce Mon Sep 17 00:00:00 2001
+From: ycyang <yc.yang1229@gmail.com>
+Date: Fri, 8 Jan 2021 19:03:32 +0800
+Subject: [PATCH 7/7] remove unnecessary parentheses.
+
+---
+ crypto/include/cipher_types.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/crypto/include/cipher_types.h b/crypto/include/cipher_types.h
+index 089e705..7221b30 100644
+--- a/crypto/include/cipher_types.h
++++ b/crypto/include/cipher_types.h
+@@ -72,7 +72,7 @@ extern srtp_debug_module_t srtp_mod_alloc;
+ /* debug modules for cipher types */
+ extern srtp_debug_module_t srtp_mod_aes_icm;
+ 
+-#if (defined(OPENSSL) || defined(MBEDTLS) || defined(NSS))
++#if defined(OPENSSL) || defined(MBEDTLS) || defined(NSS)
+ extern srtp_debug_module_t srtp_mod_aes_gcm;
+ #endif
+ 
+-- 
+2.17.1
+
