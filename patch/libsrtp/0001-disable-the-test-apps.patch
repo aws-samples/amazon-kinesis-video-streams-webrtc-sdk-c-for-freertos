@@ -1,7 +1,7 @@
 From 8bd1077c99b7484bad28f8a8c3b6dc08380e5dd2 Mon Sep 17 00:00:00 2001
 From: ycyang <yc.yang1229@gmail.com>
 Date: Tue, 6 Oct 2020 16:54:30 +0800
-Subject: [PATCH 1/7] disable the test apps.
+Subject: [PATCH 1/8] disable the test apps.
 
 ---
  CMakeLists.txt | 2 +-

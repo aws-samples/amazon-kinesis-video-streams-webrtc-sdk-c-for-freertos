@@ -1,7 +1,7 @@
 From 39833d7151aba2d2fc9733ed7d0e42c428c2a4ce Mon Sep 17 00:00:00 2001
 From: ycyang <yc.yang1229@gmail.com>
 Date: Fri, 8 Jan 2021 19:03:32 +0800
-Subject: [PATCH 7/7] remove unnecessary parentheses.
+Subject: [PATCH 7/8] remove unnecessary parentheses.
 
 ---
  crypto/include/cipher_types.h | 2 +-
