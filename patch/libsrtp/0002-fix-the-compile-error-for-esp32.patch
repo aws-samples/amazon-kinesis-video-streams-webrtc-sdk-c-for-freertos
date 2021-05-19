@@ -1,7 +1,7 @@
 From d2a79262eb86d79c4cb391f6a3234f48f1fb148d Mon Sep 17 00:00:00 2001
 From: ycyang <yc.yang1229@gmail.com>
 Date: Wed, 14 Oct 2020 12:59:33 +0800
-Subject: [PATCH 2/7] fix the compile error for esp32.
+Subject: [PATCH 2/8] fix the compile error for esp32.
 
 ---
  crypto/include/datatypes.h    | 4 ++++
