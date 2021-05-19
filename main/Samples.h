@@ -39,7 +39,7 @@ extern "C" {
 #define SAMPLE_HASH_TABLE_BUCKET_LENGTH 2
 
 #define SAMPLE_VIDEO_THREAD_NAME "videosource"
-#define SAMPLE_VIDEO_THREAD_SIZE 4096
+#define SAMPLE_VIDEO_THREAD_SIZE 8196
 
 #define SAMPLE_AUDIO_THREAD_NAME "audiosource"
 #define SAMPLE_AUDIO_THREAD_SIZE 4096
@@ -69,6 +69,7 @@ typedef struct {
     volatile ATOMIC_BOOL interrupted;
     volatile ATOMIC_BOOL mediaThreadStarted;
     volatile ATOMIC_BOOL recreateSignalingClient;
+    volatile ATOMIC_BOOL connected;
     BOOL useTestSrc;
     ChannelInfo channelInfo;
     PCHAR pCaCertPath;
@@ -78,8 +79,7 @@ typedef struct {
     UINT32 audioBufferSize;
     PBYTE pVideoFrameBuffer;
     UINT32 videoBufferSize;
-    TID videoSenderTid;
-    TID audioSenderTid;
+    TID mediaSenderTid;
     TIMER_QUEUE_HANDLE timerQueueHandle;
     UINT32 iceCandidatePairStatsTimerId;
     SampleStreamingMediaType mediaType;//!< the control of video only, or video/audio.
