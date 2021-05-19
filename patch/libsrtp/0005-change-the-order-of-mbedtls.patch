@@ -1,0 +1,31 @@
+From 95b5b6bee5ea40c962eee4f421bad206bc8c1a19 Mon Sep 17 00:00:00 2001
+From: ycyang <yc.yang1229@gmail.com>
+Date: Fri, 8 Jan 2021 18:32:06 +0800
+Subject: [PATCH 5/7] change the order of mbedtls.
+
+---
+ config_in_cmake.h | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/config_in_cmake.h b/config_in_cmake.h
+index 3e66531..7e0936c 100644
+--- a/config_in_cmake.h
++++ b/config_in_cmake.h
+@@ -18,11 +18,12 @@
+ /* Define this to use OpenSSL crypto. */
+ #cmakedefine OPENSSL 1
+ 
++/* Define this to use MBEDTLS. */
++#cmakedefine MBEDTLS 1
++
+ /* Define this to use AES-GCM. */
+ #cmakedefine GCM 1
+ 
+-/* Define this to use MBEDTLS. */
+-#cmakedefine MBEDTLS 1
+ 
+ /* Define if building for a CISC machine (e.g. Intel). */
+ #define CPU_CISC 1
+-- 
+2.17.1
+

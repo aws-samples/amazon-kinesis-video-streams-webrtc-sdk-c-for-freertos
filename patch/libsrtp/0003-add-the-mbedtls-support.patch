@@ -1,0 +1,1601 @@
+From a11bda4f3aad1f85d3663ce168e869a41faaf7ad Mon Sep 17 00:00:00 2001
+From: ycyang <yc.yang1229@gmail.com>
+Date: Tue, 17 Nov 2020 22:01:43 +0800
+Subject: [PATCH 3/7] add the mbedtls support.
+
+---
+ CMakeLists.txt                  |  30 +-
+ FindMbedTLS.cmake               |  38 +++
+ config_in_cmake.h               |   3 +
+ crypto/cipher/aes_gcm_mbedtls.c | 574 ++++++++++++++++++++++++++++++++
+ crypto/cipher/aes_icm_mbedtls.c | 529 +++++++++++++++++++++++++++++
+ crypto/hash/hmac_mbedtls.c      | 253 ++++++++++++++
+ crypto/include/aes_gcm.h        |  19 ++
+ crypto/include/aes_icm_ext.h    |  14 +
+ crypto/include/cipher_types.h   |   3 +
+ 9 files changed, 1460 insertions(+), 3 deletions(-)
+ create mode 100644 FindMbedTLS.cmake
+ create mode 100644 crypto/cipher/aes_gcm_mbedtls.c
+ create mode 100644 crypto/cipher/aes_icm_mbedtls.c
+ create mode 100644 crypto/hash/hmac_mbedtls.c
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ad3737b..115f6f4 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -4,7 +4,7 @@ project(libsrtp2 LANGUAGES C)
+ 
+ set(PACKAGE_VERSION 2.3.0)
+ set(PACKAGE_STRING "${CMAKE_PROJECT_NAME} ${PACKAGE_VERSION}")
+-
++set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR};${CMAKE_MODULE_PATH}")
+ include(TestBigEndian)
+ include(CheckIncludeFile)
+ include(CheckFunctionExists)
+@@ -54,15 +54,27 @@ set(ENABLE_DEBUG_LOGGING OFF CACHE BOOL "Enable debug logging in all modules")
+ set(ERR_REPORTING_STDOUT OFF CACHE BOOL "Enable logging to stdout")
+ set(ERR_REPORTING_FILE "" CACHE FILEPATH "Use file for logging")
+ set(ENABLE_OPENSSL OFF CACHE BOOL "Enable OpenSSL crypto engine")
++set(ENABLE_MBEDTLS ON CACHE BOOL "Enable MbedTLS crypto engine")
+ set(TEST_APPS OFF CACHE BOOL "Build test applications")
+ option(BUILD_SHARED_LIBS "Build shared library" OFF)
+ 
++if(ENABLE_OPENSSL AND ENABLE_MBEDTLS)
++  message(FATAL_ERROR "ssl conflict. can not enable openssl and mbedtls simultaneously.")
++endif()
++
+ if(ENABLE_OPENSSL)
+   find_package(OpenSSL REQUIRED)
+   include_directories(${OPENSSL_INCLUDE_DIR})
++  set(OPENSSL ${ENABLE_OPENSSL} CACHE BOOL INTERNAL)
++  set(GCM ${ENABLE_OPENSSL} CACHE BOOL INTERNAL)
++endif()
++
++if(ENABLE_MBEDTLS)
++  find_package(MbedTLS REQUIRED)
++  include_directories(${MBEDTLS_INCLUDE_DIRS})
++  set(MBEDTLS ${ENABLE_MBEDTLS} CACHE BOOL INTERNAL)
++  set(GCM ${ENABLE_MBEDTLS} CACHE BOOL INTERNAL)
+ endif()
+-set(OPENSSL ${ENABLE_OPENSSL} CACHE BOOL INTERNAL)
+-set(GCM ${ENABLE_OPENSSL} CACHE BOOL INTERNAL)
+ 
+ set(CONFIG_FILE_DIR ${CMAKE_CURRENT_BINARY_DIR})
+ include_directories(${CONFIG_FILE_DIR})
+@@ -85,6 +97,11 @@ if(ENABLE_OPENSSL)
+     crypto/cipher/aes_icm_ossl.c
+     crypto/cipher/aes_gcm_ossl.c
+   )
++elseif(ENABLE_MBEDTLS)
++  list(APPEND CIPHERS_SOURCES_C
++    crypto/cipher/aes_icm_mbedtls.c
++    crypto/cipher/aes_gcm_mbedtls.c
++  )
+ else()
+   list(APPEND  CIPHERS_SOURCES_C
+     crypto/cipher/aes.c
+@@ -101,6 +118,10 @@ if(ENABLE_OPENSSL)
+   list(APPEND HASHES_SOURCES_C
+     crypto/hash/hmac_ossl.c
+   )
++elseif(ENABLE_MBEDTLS)
++  list(APPEND HASHES_SOURCES_C
++    crypto/hash/hmac_mbedtls.c
++  )
+ else()
+   list(APPEND  HASHES_SOURCES_C
+     crypto/hash/hmac.c
+@@ -180,6 +201,9 @@ target_include_directories(srtp2 PUBLIC crypto/include include)
+ if(ENABLE_OPENSSL)
+   target_link_libraries(srtp2 OpenSSL::Crypto)
+ endif()
++if(ENABLE_MBEDTLS)
++  target_link_libraries(srtp2 ${MBEDTLS_LIBRARIES})
++endif()
+ if(WIN32)
+   target_link_libraries(srtp2 ws2_32)
+ endif()
+diff --git a/FindMbedTLS.cmake b/FindMbedTLS.cmake
+new file mode 100644
+index 0000000..b3ed046
+--- /dev/null
++++ b/FindMbedTLS.cmake
+@@ -0,0 +1,38 @@
++find_path(MBEDTLS_INCLUDE_DIRS mbedtls/ssl.h)
++
++find_library(MBEDTLS_LIBRARY mbedtls)
++find_library(MBEDX509_LIBRARY mbedx509)
++find_library(MBEDCRYPTO_LIBRARY mbedcrypto)
++
++set(MBEDTLS_LIBRARIES "${MBEDTLS_LIBRARY}" "${MBEDX509_LIBRARY}" "${MBEDCRYPTO_LIBRARY}")
++
++include(FindPackageHandleStandardArgs)
++find_package_handle_standard_args(MbedTLS DEFAULT_MSG
++    MBEDTLS_LIBRARY MBEDTLS_INCLUDE_DIRS MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
++
++mark_as_advanced(MBEDTLS_INCLUDE_DIRS MBEDTLS_LIBRARY MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
++
++if(NOT TARGET MbedTLS)
++	message("in mbedtls ${MBEDTLS_LIBRARY}")
++    add_library(MbedTLS UNKNOWN IMPORTED)
++    set_target_properties(MbedTLS PROPERTIES
++                          INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIRS}"
++                          IMPORTED_LINK_INTERFACE_LANGUAGES "C"
++                          IMPORTED_LOCATION "${MBEDTLS_LIBRARY}")
++endif()
++
++if(NOT TARGET MbedCrypto)
++    add_library(MbedCrypto UNKNOWN IMPORTED)
++    set_target_properties(MbedCrypto PROPERTIES
++                          INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIRS}"
++                          IMPORTED_LINK_INTERFACE_LANGUAGES "C"
++                          IMPORTED_LOCATION "${MBEDCRYPTO_LIBRARY}")
++endif()
++
++if(NOT TARGET MbedX509)
++    add_library(MbedX509 UNKNOWN IMPORTED)
++    set_target_properties(MbedX509 PROPERTIES
++                          INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIRS}"
++                          IMPORTED_LINK_INTERFACE_LANGUAGES "C"
++                          IMPORTED_LOCATION "${MBEDX509_LIBRARY}")
++endif()
+diff --git a/config_in_cmake.h b/config_in_cmake.h
+index 25daeb3..3e66531 100644
+--- a/config_in_cmake.h
++++ b/config_in_cmake.h
+@@ -21,6 +21,9 @@
+ /* Define this to use AES-GCM. */
+ #cmakedefine GCM 1
+ 
++/* Define this to use MBEDTLS. */
++#cmakedefine MBEDTLS 1
++
+ /* Define if building for a CISC machine (e.g. Intel). */
+ #define CPU_CISC 1
+ 
+diff --git a/crypto/cipher/aes_gcm_mbedtls.c b/crypto/cipher/aes_gcm_mbedtls.c
+new file mode 100644
+index 0000000..c713928
+--- /dev/null
++++ b/crypto/cipher/aes_gcm_mbedtls.c
+@@ -0,0 +1,574 @@
++/*
++ * aes_gcm_mbedtls.c
++ *
++ * AES Galois Counter Mode
++ *
++ * YongCheng Yang
++ *
++ */
++
++/*
++ *
++ * Copyright (c) 2013-2017, Cisco Systems, Inc.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   Redistributions of source code must retain the above copyright
++ *   notice, this list of conditions and the following disclaimer.
++ *
++ *   Redistributions in binary form must reproduce the above
++ *   copyright notice, this list of conditions and the following
++ *   disclaimer in the documentation and/or other materials provided
++ *   with the distribution.
++ *
++ *   Neither the name of the Cisco Systems, Inc. nor the names of its
++ *   contributors may be used to endorse or promote products derived
++ *   from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
++ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
++ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
++ * OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
++
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
++#include <mbedtls/gcm.h>
++#include "aes_gcm.h"
++#include "alloc.h"
++#include "err.h" /* for srtp_debug */
++#include "crypto_types.h"
++#include "cipher_types.h"
++
++srtp_debug_module_t srtp_mod_aes_gcm = {
++    0,                /* debugging is off by default */
++    "aes gcm mbedtls" /* printable module name       */
++};
++
++/**
++ * SRTP IV Formation for AES-GCM
++ * https://tools.ietf.org/html/rfc7714#section-8.1
++ *   0  0  0  0  0  0  0  0  0  0  1  1
++ *   0  1  2  3  4  5  6  7  8  9  0  1
++ *  +--+--+--+--+--+--+--+--+--+--+--+--+
++ *  |00|00| SSRC      | ROC       | SEQ |---+
++ *  +--+--+--+--+--+--+--+--+--+--+--+--+   |
++ *  |
++ *  +--+--+--+--+--+--+--+--+--+--+--+--+   |
++ *  | Encryption Salt                   |->(+)
++ *  +--+--+--+--+--+--+--+--+--+--+--+--+   |
++ *                                          |
++ *  +--+--+--+--+--+--+--+--+--+--+--+--+   |
++ *  | Initialization Vector             |<--+
++ *  +--+--+--+--+--+--+--+--+--+--+--+--+
++ *
++ * SRTCP IV Formation for AES-GCM
++ * https://tools.ietf.org/html/rfc7714#section-9.1
++ *
++ */
++
++/*
++ * For now we only support 8 and 16 octet tags.  The spec allows for
++ * optional 12 byte tag, which may be supported in the future.
++ */
++#define GCM_IV_LEN 12
++#define GCM_AUTH_TAG_LEN 16
++#define GCM_AUTH_TAG_LEN_8 8
++
++#define FUNC_ENTRY() debug_print(srtp_mod_aes_gcm, "%s entry", __func__);
++/*
++ * This function allocates a new instance of this crypto engine.
++ * The key_len parameter should be one of 28 or 44 for
++ * AES-128-GCM or AES-256-GCM respectively.  Note that the
++ * key length includes the 14 byte salt value that is used when
++ * initializing the KDF.
++ */
++static srtp_err_status_t srtp_aes_gcm_mbedtls_alloc(srtp_cipher_t **c,
++                                                    int key_len,
++                                                    int tlen)
++{
++    FUNC_ENTRY();
++    srtp_aes_gcm_ctx_t *gcm;
++
++    debug_print(srtp_mod_aes_gcm, "allocating cipher with key length %d",
++                key_len);
++    debug_print(srtp_mod_aes_gcm, "allocating cipher with tag length %d", tlen);
++
++    /*
++     * Verify the key_len is valid for one of: AES-128/256
++     */
++    if (key_len != SRTP_AES_GCM_128_KEY_LEN_WSALT &&
++        key_len != SRTP_AES_GCM_256_KEY_LEN_WSALT) {
++        return (srtp_err_status_bad_param);
++    }
++
++    if (tlen != GCM_AUTH_TAG_LEN && tlen != GCM_AUTH_TAG_LEN_8) {
++        return (srtp_err_status_bad_param);
++    }
++
++    /* allocate memory a cipher of type aes_gcm */
++    *c = (srtp_cipher_t *)srtp_crypto_alloc(sizeof(srtp_cipher_t));
++    if (*c == NULL) {
++        return (srtp_err_status_alloc_fail);
++    }
++
++    gcm = (srtp_aes_gcm_ctx_t *)srtp_crypto_alloc(sizeof(srtp_aes_gcm_ctx_t));
++    if (gcm == NULL) {
++        srtp_crypto_free(*c);
++        *c = NULL;
++        return (srtp_err_status_alloc_fail);
++    }
++
++    gcm->ctx =
++        (mbedtls_gcm_context *)srtp_crypto_alloc(sizeof(mbedtls_gcm_context));
++    if (gcm->ctx == NULL) {
++        srtp_crypto_free(gcm);
++        srtp_crypto_free(*c);
++        *c = NULL;
++        return srtp_err_status_alloc_fail;
++    }
++    mbedtls_gcm_init(gcm->ctx);
++
++    /* set pointers */
++    (*c)->state = gcm;
++
++    /* setup cipher attributes */
++    switch (key_len) {
++    case SRTP_AES_GCM_128_KEY_LEN_WSALT:
++        (*c)->type = &srtp_aes_gcm_128;
++        (*c)->algorithm = SRTP_AES_GCM_128;
++        gcm->key_size = SRTP_AES_128_KEY_LEN;
++        gcm->tag_len = tlen;
++        break;
++    case SRTP_AES_GCM_256_KEY_LEN_WSALT:
++        (*c)->type = &srtp_aes_gcm_256;
++        (*c)->algorithm = SRTP_AES_GCM_256;
++        gcm->key_size = SRTP_AES_256_KEY_LEN;
++        gcm->tag_len = tlen;
++        break;
++    }
++
++    /* set key size        */
++    (*c)->key_len = key_len;
++
++    return (srtp_err_status_ok);
++}
++
++/*
++ * This function deallocates a GCM session
++ */
++static srtp_err_status_t srtp_aes_gcm_mbedtls_dealloc(srtp_cipher_t *c)
++{
++    srtp_aes_gcm_ctx_t *ctx;
++    FUNC_ENTRY();
++    ctx = (srtp_aes_gcm_ctx_t *)c->state;
++    if (ctx) {
++        mbedtls_gcm_free(ctx->ctx);
++        srtp_crypto_free(ctx->ctx);
++        /* zeroize the key material */
++        octet_string_set_to_zero(ctx, sizeof(srtp_aes_gcm_ctx_t));
++        srtp_crypto_free(ctx);
++    }
++
++    /* free memory */
++    srtp_crypto_free(c);
++
++    return (srtp_err_status_ok);
++}
++
++static srtp_err_status_t srtp_aes_gcm_mbedtls_context_init(void *cv,
++                                                           const uint8_t *key)
++{
++    FUNC_ENTRY();
++    srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
++    uint32_t key_len_in_bits;
++    int errCode = 0;
++    c->dir = srtp_direction_any;
++    c->aad_size = 0;
++
++    debug_print(srtp_mod_aes_gcm, "key:  %s",
++                srtp_octet_string_hex_string(key, c->key_size));
++    key_len_in_bits = (c->key_size << 3);
++    switch (c->key_size) {
++    case SRTP_AES_256_KEY_LEN:
++    case SRTP_AES_128_KEY_LEN:
++        break;
++    default:
++        return (srtp_err_status_bad_param);
++        break;
++    }
++
++    errCode = mbedtls_gcm_setkey(c->ctx, MBEDTLS_CIPHER_ID_AES,
++                                 (const unsigned char *)key, key_len_in_bits);
++    if (errCode != 0) {
++        debug_print(srtp_mod_aes_gcm, "mbedtls error code:  %d", errCode);
++        return srtp_err_status_init_fail;
++    }
++
++    return (srtp_err_status_ok);
++}
++
++static srtp_err_status_t srtp_aes_gcm_mbedtls_set_iv(
++    void *cv,
++    uint8_t *iv,
++    srtp_cipher_direction_t direction)
++{
++    FUNC_ENTRY();
++    srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
++
++    if (direction != srtp_direction_encrypt &&
++        direction != srtp_direction_decrypt) {
++        return (srtp_err_status_bad_param);
++    }
++    c->dir = direction;
++
++    debug_print(srtp_mod_aes_gcm, "setting iv: %s",
++                srtp_octet_string_hex_string(iv, GCM_IV_LEN));
++    c->iv_len = GCM_IV_LEN;
++    memcpy(c->iv, iv, c->iv_len);
++    return (srtp_err_status_ok);
++}
++
++/*
++ * This function processes the AAD
++ *
++ * Parameters:
++ *	c	Crypto context
++ *	aad	Additional data to process for AEAD cipher suites
++ *	aad_len	length of aad buffer
++ */
++static srtp_err_status_t srtp_aes_gcm_mbedtls_set_aad(void *cv,
++                                                      const uint8_t *aad,
++                                                      uint32_t aad_len)
++{
++    FUNC_ENTRY();
++    int errCode = 0;
++    srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
++
++    debug_print(srtp_mod_aes_gcm, "setting AAD: %s",
++                srtp_octet_string_hex_string(aad, aad_len));
++
++    if (aad_len + c->aad_size > MAX_AD_SIZE) {
++        return srtp_err_status_bad_param;
++    }
++
++    memcpy(c->aad + c->aad_size, aad, aad_len);
++    c->aad_size += aad_len;
++
++    return (srtp_err_status_ok);
++}
++
++/*
++ * This function encrypts a buffer using AES GCM mode
++ *
++ * Parameters:
++ *	c	Crypto context
++ *	buf	data to encrypt
++ *	enc_len	length of encrypt buffer
++ */
++static srtp_err_status_t srtp_aes_gcm_mbedtls_encrypt(void *cv,
++                                                      unsigned char *buf,
++                                                      unsigned int *enc_len)
++{
++    FUNC_ENTRY();
++    srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
++    int errCode = 0;
++
++    if (c->dir != srtp_direction_encrypt && c->dir != srtp_direction_decrypt) {
++        return (srtp_err_status_bad_param);
++    }
++
++    errCode = mbedtls_gcm_crypt_and_tag(c->ctx, MBEDTLS_GCM_ENCRYPT, *enc_len,
++                                        c->iv, c->iv_len, c->aad, c->aad_size,
++                                        buf, buf, c->tag_len, c->tag);
++
++    c->aad_size = 0;
++    if (errCode != 0) {
++        debug_print(srtp_mod_aes_gcm, "mbedtls error code:  %d", errCode);
++        return srtp_err_status_bad_param;
++    }
++
++    return (srtp_err_status_ok);
++}
++
++/*
++ * This function calculates and returns the GCM tag for a given context.
++ * This should be called after encrypting the data.  The *len value
++ * is increased by the tag size.  The caller must ensure that *buf has
++ * enough room to accept the appended tag.
++ *
++ * Parameters:
++ *	c	Crypto context
++ *	buf	data to encrypt
++ *	len	length of encrypt buffer
++ */
++static srtp_err_status_t srtp_aes_gcm_mbedtls_get_tag(void *cv,
++                                                      uint8_t *buf,
++                                                      uint32_t *len)
++{
++    FUNC_ENTRY();
++    srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
++    debug_print(srtp_mod_aes_gcm, "appended tag size:  %d", c->tag_len);
++    *len = c->tag_len;
++    memcpy(buf, c->tag, c->tag_len);
++    return (srtp_err_status_ok);
++}
++
++/*
++ * This function decrypts a buffer using AES GCM mode
++ *
++ * Parameters:
++ *	c	Crypto context
++ *	buf	data to encrypt
++ *	enc_len	length of encrypt buffer
++ */
++static srtp_err_status_t srtp_aes_gcm_mbedtls_decrypt(void *cv,
++                                                      unsigned char *buf,
++                                                      unsigned int *enc_len)
++{
++    FUNC_ENTRY();
++    srtp_aes_gcm_ctx_t *c = (srtp_aes_gcm_ctx_t *)cv;
++    int errCode = 0;
++    int len = *enc_len;
++
++    if (c->dir != srtp_direction_encrypt && c->dir != srtp_direction_decrypt) {
++        return (srtp_err_status_bad_param);
++    }
++
++    debug_print(srtp_mod_aes_gcm, "AAD: %s",
++                srtp_octet_string_hex_string(c->aad, c->aad_size));
++
++    errCode = mbedtls_gcm_auth_decrypt(
++        c->ctx, (*enc_len - c->tag_len), c->iv, c->iv_len, c->aad, c->aad_size,
++        buf + (*enc_len - c->tag_len), c->tag_len, buf, buf);
++    c->aad_size = 0;
++    if (errCode != 0) {
++        return (srtp_err_status_auth_fail);
++    }
++
++    /*
++     * Reduce the buffer size by the tag length since the tag
++     * is not part of the original payload
++     */
++    *enc_len -= c->tag_len;
++
++    return (srtp_err_status_ok);
++}
++
++/*
++ * Name of this crypto engine
++ */
++static const char srtp_aes_gcm_128_mbedtls_description[] =
++    "AES-128 GCM using mbedtls";
++static const char srtp_aes_gcm_256_mbedtls_description[] =
++    "AES-256 GCM using mbedtls";
++
++/* clang-format off */
++static const uint8_t srtp_aes_gcm_test_case_0_key[SRTP_AES_GCM_128_KEY_LEN_WSALT] = {
++    0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
++    0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
++    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
++    0x09, 0x0a, 0x0b, 0x0c,
++};
++/* clang-format on */
++
++/* clang-format off */
++static uint8_t srtp_aes_gcm_test_case_0_iv[12] = {
++    0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad,
++    0xde, 0xca, 0xf8, 0x88
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_gcm_test_case_0_plaintext[60] =  {
++    0xd9, 0x31, 0x32, 0x25, 0xf8, 0x84, 0x06, 0xe5,
++    0xa5, 0x59, 0x09, 0xc5, 0xaf, 0xf5, 0x26, 0x9a,
++    0x86, 0xa7, 0xa9, 0x53, 0x15, 0x34, 0xf7, 0xda,
++    0x2e, 0x4c, 0x30, 0x3d, 0x8a, 0x31, 0x8a, 0x72,
++    0x1c, 0x3c, 0x0c, 0x95, 0x95, 0x68, 0x09, 0x53,
++    0x2f, 0xcf, 0x0e, 0x24, 0x49, 0xa6, 0xb5, 0x25,
++    0xb1, 0x6a, 0xed, 0xf5, 0xaa, 0x0d, 0xe6, 0x57,
++    0xba, 0x63, 0x7b, 0x39
++};
++
++/* clang-format off */
++static const uint8_t srtp_aes_gcm_test_case_0_aad[20] = {
++    0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef,
++    0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef,
++    0xab, 0xad, 0xda, 0xd2
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_gcm_test_case_0_ciphertext[76] = {
++    0x42, 0x83, 0x1e, 0xc2, 0x21, 0x77, 0x74, 0x24,
++    0x4b, 0x72, 0x21, 0xb7, 0x84, 0xd0, 0xd4, 0x9c,
++    0xe3, 0xaa, 0x21, 0x2f, 0x2c, 0x02, 0xa4, 0xe0,
++    0x35, 0xc1, 0x7e, 0x23, 0x29, 0xac, 0xa1, 0x2e,
++    0x21, 0xd5, 0x14, 0xb2, 0x54, 0x66, 0x93, 0x1c,
++    0x7d, 0x8f, 0x6a, 0x5a, 0xac, 0x84, 0xaa, 0x05,
++    0x1b, 0xa3, 0x0b, 0x39, 0x6a, 0x0a, 0xac, 0x97,
++    0x3d, 0x58, 0xe0, 0x91,
++    /* the last 16 bytes are the tag */
++    0x5b, 0xc9, 0x4f, 0xbc, 0x32, 0x21, 0xa5, 0xdb,
++    0x94, 0xfa, 0xe9, 0x5a, 0xe7, 0x12, 0x1a, 0x47,
++};
++/* clang-format on */
++
++static const srtp_cipher_test_case_t srtp_aes_gcm_test_case_0a = {
++    SRTP_AES_GCM_128_KEY_LEN_WSALT,      /* octets in key            */
++    srtp_aes_gcm_test_case_0_key,        /* key                      */
++    srtp_aes_gcm_test_case_0_iv,         /* packet index             */
++    60,                                  /* octets in plaintext      */
++    srtp_aes_gcm_test_case_0_plaintext,  /* plaintext                */
++    68,                                  /* octets in ciphertext     */
++    srtp_aes_gcm_test_case_0_ciphertext, /* ciphertext  + tag        */
++    20,                                  /* octets in AAD            */
++    srtp_aes_gcm_test_case_0_aad,        /* AAD                      */
++    GCM_AUTH_TAG_LEN_8,                  /* */
++    NULL                                 /* pointer to next testcase */
++};
++
++static const srtp_cipher_test_case_t srtp_aes_gcm_test_case_0 = {
++    SRTP_AES_GCM_128_KEY_LEN_WSALT,      /* octets in key            */
++    srtp_aes_gcm_test_case_0_key,        /* key                      */
++    srtp_aes_gcm_test_case_0_iv,         /* packet index             */
++    60,                                  /* octets in plaintext      */
++    srtp_aes_gcm_test_case_0_plaintext,  /* plaintext                */
++    76,                                  /* octets in ciphertext     */
++    srtp_aes_gcm_test_case_0_ciphertext, /* ciphertext  + tag        */
++    20,                                  /* octets in AAD            */
++    srtp_aes_gcm_test_case_0_aad,        /* AAD                      */
++    GCM_AUTH_TAG_LEN,                    /* */
++    &srtp_aes_gcm_test_case_0a           /* pointer to next testcase */
++};
++
++/* clang-format off */
++static const uint8_t srtp_aes_gcm_test_case_1_key[SRTP_AES_GCM_256_KEY_LEN_WSALT] = {
++    0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
++    0xa5, 0x59, 0x09, 0xc5, 0x54, 0x66, 0x93, 0x1c,
++    0xaf, 0xf5, 0x26, 0x9a, 0x21, 0xd5, 0x14, 0xb2,
++    0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
++    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
++    0x09, 0x0a, 0x0b, 0x0c,
++};
++/* clang-format on */
++
++/* clang-format off */
++static uint8_t srtp_aes_gcm_test_case_1_iv[12] = {
++    0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad,
++    0xde, 0xca, 0xf8, 0x88
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_gcm_test_case_1_plaintext[60] =  {
++    0xd9, 0x31, 0x32, 0x25, 0xf8, 0x84, 0x06, 0xe5,
++    0xa5, 0x59, 0x09, 0xc5, 0xaf, 0xf5, 0x26, 0x9a,
++    0x86, 0xa7, 0xa9, 0x53, 0x15, 0x34, 0xf7, 0xda,
++    0x2e, 0x4c, 0x30, 0x3d, 0x8a, 0x31, 0x8a, 0x72,
++    0x1c, 0x3c, 0x0c, 0x95, 0x95, 0x68, 0x09, 0x53,
++    0x2f, 0xcf, 0x0e, 0x24, 0x49, 0xa6, 0xb5, 0x25,
++    0xb1, 0x6a, 0xed, 0xf5, 0xaa, 0x0d, 0xe6, 0x57,
++    0xba, 0x63, 0x7b, 0x39
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_gcm_test_case_1_aad[20] = {
++    0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef,
++    0xfe, 0xed, 0xfa, 0xce, 0xde, 0xad, 0xbe, 0xef,
++    0xab, 0xad, 0xda, 0xd2
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_gcm_test_case_1_ciphertext[76] = {
++    0x0b, 0x11, 0xcf, 0xaf, 0x68, 0x4d, 0xae, 0x46,
++    0xc7, 0x90, 0xb8, 0x8e, 0xb7, 0x6a, 0x76, 0x2a,
++    0x94, 0x82, 0xca, 0xab, 0x3e, 0x39, 0xd7, 0x86,
++    0x1b, 0xc7, 0x93, 0xed, 0x75, 0x7f, 0x23, 0x5a,
++    0xda, 0xfd, 0xd3, 0xe2, 0x0e, 0x80, 0x87, 0xa9,
++    0x6d, 0xd7, 0xe2, 0x6a, 0x7d, 0x5f, 0xb4, 0x80,
++    0xef, 0xef, 0xc5, 0x29, 0x12, 0xd1, 0xaa, 0x10,
++    0x09, 0xc9, 0x86, 0xc1,
++    /* the last 16 bytes are the tag */
++    0x45, 0xbc, 0x03, 0xe6, 0xe1, 0xac, 0x0a, 0x9f,
++    0x81, 0xcb, 0x8e, 0x5b, 0x46, 0x65, 0x63, 0x1d,
++};
++/* clang-format on */
++
++static const srtp_cipher_test_case_t srtp_aes_gcm_test_case_1a = {
++    SRTP_AES_GCM_256_KEY_LEN_WSALT,      /* octets in key            */
++    srtp_aes_gcm_test_case_1_key,        /* key                      */
++    srtp_aes_gcm_test_case_1_iv,         /* packet index             */
++    60,                                  /* octets in plaintext      */
++    srtp_aes_gcm_test_case_1_plaintext,  /* plaintext                */
++    68,                                  /* octets in ciphertext     */
++    srtp_aes_gcm_test_case_1_ciphertext, /* ciphertext  + tag        */
++    20,                                  /* octets in AAD            */
++    srtp_aes_gcm_test_case_1_aad,        /* AAD                      */
++    GCM_AUTH_TAG_LEN_8,                  /* */
++    NULL                                 /* pointer to next testcase */
++};
++
++static const srtp_cipher_test_case_t srtp_aes_gcm_test_case_1 = {
++    SRTP_AES_GCM_256_KEY_LEN_WSALT,      /* octets in key            */
++    srtp_aes_gcm_test_case_1_key,        /* key                      */
++    srtp_aes_gcm_test_case_1_iv,         /* packet index             */
++    60,                                  /* octets in plaintext      */
++    srtp_aes_gcm_test_case_1_plaintext,  /* plaintext                */
++    76,                                  /* octets in ciphertext     */
++    srtp_aes_gcm_test_case_1_ciphertext, /* ciphertext  + tag        */
++    20,                                  /* octets in AAD            */
++    srtp_aes_gcm_test_case_1_aad,        /* AAD                      */
++    GCM_AUTH_TAG_LEN,                    /* */
++    &srtp_aes_gcm_test_case_1a           /* pointer to next testcase */
++};
++
++/*
++ * This is the vector function table for this crypto engine.
++ */
++const srtp_cipher_type_t srtp_aes_gcm_128 = {
++    srtp_aes_gcm_mbedtls_alloc,
++    srtp_aes_gcm_mbedtls_dealloc,
++    srtp_aes_gcm_mbedtls_context_init,
++    srtp_aes_gcm_mbedtls_set_aad,
++    srtp_aes_gcm_mbedtls_encrypt,
++    srtp_aes_gcm_mbedtls_decrypt,
++    srtp_aes_gcm_mbedtls_set_iv,
++    srtp_aes_gcm_mbedtls_get_tag,
++    srtp_aes_gcm_128_mbedtls_description,
++    &srtp_aes_gcm_test_case_0,
++    SRTP_AES_GCM_128
++};
++
++/*
++ * This is the vector function table for this crypto engine.
++ */
++const srtp_cipher_type_t srtp_aes_gcm_256 = {
++    srtp_aes_gcm_mbedtls_alloc,
++    srtp_aes_gcm_mbedtls_dealloc,
++    srtp_aes_gcm_mbedtls_context_init,
++    srtp_aes_gcm_mbedtls_set_aad,
++    srtp_aes_gcm_mbedtls_encrypt,
++    srtp_aes_gcm_mbedtls_decrypt,
++    srtp_aes_gcm_mbedtls_set_iv,
++    srtp_aes_gcm_mbedtls_get_tag,
++    srtp_aes_gcm_256_mbedtls_description,
++    &srtp_aes_gcm_test_case_1,
++    SRTP_AES_GCM_256
++};
+diff --git a/crypto/cipher/aes_icm_mbedtls.c b/crypto/cipher/aes_icm_mbedtls.c
+new file mode 100644
+index 0000000..8b730d3
+--- /dev/null
++++ b/crypto/cipher/aes_icm_mbedtls.c
+@@ -0,0 +1,529 @@
++/*
++ * aes_icm_mbedtls.c
++ *
++ * AES Integer Counter Mode
++ *
++ * YongCheng Yang
++ */
++
++/*
++ *
++ * Copyright (c) 2013-2017, Cisco Systems, Inc.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   Redistributions of source code must retain the above copyright
++ *   notice, this list of conditions and the following disclaimer.
++ *
++ *   Redistributions in binary form must reproduce the above
++ *   copyright notice, this list of conditions and the following
++ *   disclaimer in the documentation and/or other materials provided
++ *   with the distribution.
++ *
++ *   Neither the name of the Cisco Systems, Inc. nor the names of its
++ *   contributors may be used to endorse or promote products derived
++ *   from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
++ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
++ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
++ * OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
++
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
++#include <mbedtls/aes.h>
++#include "aes_icm_ext.h"
++#include "crypto_types.h"
++#include "err.h" /* for srtp_debug */
++#include "alloc.h"
++#include "cipher_types.h"
++
++srtp_debug_module_t srtp_mod_aes_icm = {
++    0,                /* debugging is off by default */
++    "aes icm mbedtls" /* printable module name       */
++};
++
++/*
++ * integer counter mode works as follows:
++ *
++ * https://tools.ietf.org/html/rfc3711#section-4.1.1
++ *
++ * E(k, IV) || E(k, IV + 1 mod 2^128) || E(k, IV + 2 mod 2^128) ...
++ * IV = (k_s * 2^16) XOR (SSRC * 2^64) XOR (i * 2^16)
++ *
++ * IV SHALL be defined by the SSRC, the SRTP packet index i,
++ * and the SRTP session salting key k_s.
++ *
++ * SSRC: 32bits.
++ * Sequence number: 16bits.
++ * nonce is 64bits. .
++ * packet index = ROC || SEQ. (ROC: Rollover counter)
++ *
++ * 16 bits
++ * <----->
++ * +------+------+------+------+------+------+------+------+
++ * |           nonce           |    packet index    |  ctr |---+
++ * +------+------+------+------+------+------+------+------+   |
++ *                                                             |
++ * +------+------+------+------+------+------+------+------+   v
++ * |                      salt                      |000000|->(+)
++ * +------+------+------+------+------+------+------+------+   |
++ *                                                             |
++ *                                                        +---------+
++ *                                                        | encrypt |
++ *                                                        +---------+
++ *                                                             |
++ * +------+------+------+------+------+------+------+------+   |
++ * |                    keystream block                    |<--+
++ * +------+------+------+------+------+------+------+------+
++ *
++ * All fields are big-endian
++ *
++ * ctr is the block counter, which increments from zero for
++ * each packet (16 bits wide)
++ *
++ * packet index is distinct for each packet (48 bits wide)
++ *
++ * nonce can be distinct across many uses of the same key, or
++ * can be a fixed value per key, or can be per-packet randomness
++ * (64 bits)
++ *
++ */
++
++/*
++ * This function allocates a new instance of this crypto engine.
++ * The key_len parameter should be one of 30, 38, or 46 for
++ * AES-128, AES-192, and AES-256 respectively.  Note, this key_len
++ * value is inflated, as it also accounts for the 112 bit salt
++ * value.  The tlen argument is for the AEAD tag length, which
++ * isn't used in counter mode.
++ */
++static srtp_err_status_t srtp_aes_icm_mbedtls_alloc(srtp_cipher_t **c,
++                                                    int key_len,
++                                                    int tlen)
++{
++    srtp_aes_icm_ctx_t *icm;
++
++    debug_print(srtp_mod_aes_icm, "allocating cipher with key length %d",
++                key_len);
++
++    /*
++     * Verify the key_len is valid for one of: AES-128/192/256
++     */
++    if (key_len != SRTP_AES_ICM_128_KEY_LEN_WSALT &&
++        key_len != SRTP_AES_ICM_192_KEY_LEN_WSALT &&
++        key_len != SRTP_AES_ICM_256_KEY_LEN_WSALT) {
++        return srtp_err_status_bad_param;
++    }
++
++    /* allocate memory a cipher of type aes_icm */
++    *c = (srtp_cipher_t *)srtp_crypto_alloc(sizeof(srtp_cipher_t));
++    if (*c == NULL) {
++        return srtp_err_status_alloc_fail;
++    }
++
++    icm = (srtp_aes_icm_ctx_t *)srtp_crypto_alloc(sizeof(srtp_aes_icm_ctx_t));
++    if (icm == NULL) {
++        srtp_crypto_free(*c);
++        *c = NULL;
++        return srtp_err_status_alloc_fail;
++    }
++
++    icm->ctx =
++        (mbedtls_aes_context *)srtp_crypto_alloc(sizeof(mbedtls_aes_context));
++    if (icm->ctx == NULL) {
++        srtp_crypto_free(icm);
++        srtp_crypto_free(*c);
++        *c = NULL;
++        return srtp_err_status_alloc_fail;
++    }
++
++    mbedtls_aes_init(icm->ctx);
++
++    /* set pointers */
++    (*c)->state = icm;
++
++    /* setup cipher parameters */
++    switch (key_len) {
++    case SRTP_AES_ICM_128_KEY_LEN_WSALT:
++        (*c)->algorithm = SRTP_AES_ICM_128;
++        (*c)->type = &srtp_aes_icm_128;
++        icm->key_size = SRTP_AES_128_KEY_LEN;
++        break;
++    case SRTP_AES_ICM_192_KEY_LEN_WSALT:
++        (*c)->algorithm = SRTP_AES_ICM_192;
++        (*c)->type = &srtp_aes_icm_192;
++        icm->key_size = SRTP_AES_192_KEY_LEN;
++        break;
++    case SRTP_AES_ICM_256_KEY_LEN_WSALT:
++        (*c)->algorithm = SRTP_AES_ICM_256;
++        (*c)->type = &srtp_aes_icm_256;
++        icm->key_size = SRTP_AES_256_KEY_LEN;
++        break;
++    }
++
++    /* set key size        */
++    (*c)->key_len = key_len;
++
++    return srtp_err_status_ok;
++}
++
++/*
++ * This function deallocates an instance of this engine
++ */
++static srtp_err_status_t srtp_aes_icm_mbedtls_dealloc(srtp_cipher_t *c)
++{
++    srtp_aes_icm_ctx_t *ctx;
++
++    if (c == NULL) {
++        return srtp_err_status_bad_param;
++    }
++
++    /*
++     * Free the aes context
++     */
++    ctx = (srtp_aes_icm_ctx_t *)c->state;
++    if (ctx != NULL) {
++        mbedtls_aes_free(ctx->ctx);
++        srtp_crypto_free(ctx->ctx);
++        /* zeroize the key material */
++        octet_string_set_to_zero(ctx, sizeof(srtp_aes_icm_ctx_t));
++        srtp_crypto_free(ctx);
++    }
++
++    /* free memory */
++    srtp_crypto_free(c);
++
++    return srtp_err_status_ok;
++}
++
++static srtp_err_status_t srtp_aes_icm_mbedtls_context_init(void *cv,
++                                                           const uint8_t *key)
++{
++    srtp_aes_icm_ctx_t *c = (srtp_aes_icm_ctx_t *)cv;
++    uint32_t key_size_in_bits = (c->key_size << 3);
++    int errcode = 0;
++
++    /*
++     * set counter and initial values to 'offset' value, being careful not to
++     * go past the end of the key buffer
++     */
++    v128_set_to_zero(&c->counter);
++    v128_set_to_zero(&c->offset);
++    memcpy(&c->counter, key + c->key_size, SRTP_SALT_LEN);
++    memcpy(&c->offset, key + c->key_size, SRTP_SALT_LEN);
++
++    /* force last two octets of the offset to zero (for srtp compatibility) */
++    c->offset.v8[SRTP_SALT_LEN] = c->offset.v8[SRTP_SALT_LEN + 1] = 0;
++    c->counter.v8[SRTP_SALT_LEN] = c->counter.v8[SRTP_SALT_LEN + 1] = 0;
++    debug_print(srtp_mod_aes_icm, "key:  %s",
++                srtp_octet_string_hex_string(key, c->key_size));
++    debug_print(srtp_mod_aes_icm, "offset: %s", v128_hex_string(&c->offset));
++
++    switch (c->key_size) {
++    case SRTP_AES_256_KEY_LEN:
++    case SRTP_AES_192_KEY_LEN:
++    case SRTP_AES_128_KEY_LEN:
++        break;
++    default:
++        return srtp_err_status_bad_param;
++        break;
++    }
++
++    errcode = mbedtls_aes_setkey_enc(c->ctx, key, key_size_in_bits);
++    if (errcode != 0) {
++        debug_print(srtp_mod_aes_icm, "errCode: %d", errcode);
++    }
++
++    return srtp_err_status_ok;
++}
++
++/*
++ * aes_icm_set_iv(c, iv) sets the counter value to the exor of iv with
++ * the offset
++ */
++static srtp_err_status_t srtp_aes_icm_mbedtls_set_iv(
++    void *cv,
++    uint8_t *iv,
++    srtp_cipher_direction_t dir)
++{
++    srtp_aes_icm_ctx_t *c = (srtp_aes_icm_ctx_t *)cv;
++    v128_t nonce;
++    c->nc_off = 0;
++    /* set nonce (for alignment) */
++    v128_copy_octet_string(&nonce, iv);
++
++    debug_print(srtp_mod_aes_icm, "setting iv: %s", v128_hex_string(&nonce));
++
++    v128_xor(&c->counter, &c->offset, &nonce);
++
++    debug_print(srtp_mod_aes_icm, "set_counter: %s",
++                v128_hex_string(&c->counter));
++
++    return srtp_err_status_ok;
++}
++
++/*
++ * This function encrypts a buffer using AES CTR mode
++ *
++ * Parameters:
++ *	c	Crypto context
++ *	buf	data to encrypt
++ *	enc_len	length of encrypt buffer
++ */
++static srtp_err_status_t srtp_aes_icm_mbedtls_encrypt(void *cv,
++                                                      unsigned char *buf,
++                                                      unsigned int *enc_len)
++{
++    srtp_aes_icm_ctx_t *c = (srtp_aes_icm_ctx_t *)cv;
++
++    int errCode = 0;
++    debug_print(srtp_mod_aes_icm, "rs0: %s", v128_hex_string(&c->counter));
++
++    errCode =
++        mbedtls_aes_crypt_ctr(c->ctx, *enc_len, &(c->nc_off), c->counter.v8,
++                              c->stream_block.v8, buf, buf);
++    if (errCode != 0) {
++        debug_print(srtp_mod_aes_icm, "encrypt error: %d", errCode);
++        return srtp_err_status_cipher_fail;
++    }
++
++    return srtp_err_status_ok;
++}
++
++/*
++ * Name of this crypto engine
++ */
++static const char srtp_aes_icm_128_mbedtls_description[] =
++    "AES-128 counter mode using mbedtls";
++static const char srtp_aes_icm_192_mbedtls_description[] =
++    "AES-192 counter mode using mbedtls";
++static const char srtp_aes_icm_256_mbedtls_description[] =
++    "AES-256 counter mode using mbedtls";
++
++/*
++ * KAT values for AES self-test.  These
++ * values came from the legacy libsrtp code.
++ */
++/* clang-format off */
++static const uint8_t srtp_aes_icm_128_test_case_0_key[SRTP_AES_ICM_128_KEY_LEN_WSALT] = {
++    0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
++    0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c,
++    0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
++    0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd
++};
++/* clang-format on */
++
++/* clang-format off */
++static uint8_t srtp_aes_icm_128_test_case_0_nonce[16] = {
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_icm_128_test_case_0_plaintext[32] =  {
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_icm_128_test_case_0_ciphertext[32] = {
++    0xe0, 0x3e, 0xad, 0x09, 0x35, 0xc9, 0x5e, 0x80,
++    0xe1, 0x66, 0xb1, 0x6d, 0xd9, 0x2b, 0x4e, 0xb4,
++    0xd2, 0x35, 0x13, 0x16, 0x2b, 0x02, 0xd0, 0xf7,
++    0x2a, 0x43, 0xa2, 0xfe, 0x4a, 0x5f, 0x97, 0xab
++};
++/* clang-format on */
++
++static const srtp_cipher_test_case_t srtp_aes_icm_128_test_case_0 = {
++    SRTP_AES_ICM_128_KEY_LEN_WSALT,          /* octets in key            */
++    srtp_aes_icm_128_test_case_0_key,        /* key                      */
++    srtp_aes_icm_128_test_case_0_nonce,      /* packet index             */
++    32,                                      /* octets in plaintext      */
++    srtp_aes_icm_128_test_case_0_plaintext,  /* plaintext                */
++    32,                                      /* octets in ciphertext     */
++    srtp_aes_icm_128_test_case_0_ciphertext, /* ciphertext               */
++    0,                                       /* */
++    NULL,                                    /* */
++    0,                                       /* */
++    NULL                                     /* pointer to next testcase */
++};
++
++/*
++ * KAT values for AES-192-CTR self-test.  These
++ * values came from section 7 of RFC 6188.
++ */
++/* clang-format off */
++static const uint8_t srtp_aes_icm_192_test_case_0_key[SRTP_AES_ICM_192_KEY_LEN_WSALT] = {
++    0xea, 0xb2, 0x34, 0x76, 0x4e, 0x51, 0x7b, 0x2d,
++    0x3d, 0x16, 0x0d, 0x58, 0x7d, 0x8c, 0x86, 0x21,
++    0x97, 0x40, 0xf6, 0x5f, 0x99, 0xb6, 0xbc, 0xf7,
++    0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
++    0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd
++};
++/* clang-format on */
++
++/* clang-format off */
++static uint8_t srtp_aes_icm_192_test_case_0_nonce[16] = {
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_icm_192_test_case_0_plaintext[32] =  {
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_icm_192_test_case_0_ciphertext[32] = {
++    0x35, 0x09, 0x6c, 0xba, 0x46, 0x10, 0x02, 0x8d,
++    0xc1, 0xb5, 0x75, 0x03, 0x80, 0x4c, 0xe3, 0x7c,
++    0x5d, 0xe9, 0x86, 0x29, 0x1d, 0xcc, 0xe1, 0x61,
++    0xd5, 0x16, 0x5e, 0xc4, 0x56, 0x8f, 0x5c, 0x9a
++};
++/* clang-format on */
++
++static const srtp_cipher_test_case_t srtp_aes_icm_192_test_case_0 = {
++    SRTP_AES_ICM_192_KEY_LEN_WSALT,          /* octets in key            */
++    srtp_aes_icm_192_test_case_0_key,        /* key                      */
++    srtp_aes_icm_192_test_case_0_nonce,      /* packet index             */
++    32,                                      /* octets in plaintext      */
++    srtp_aes_icm_192_test_case_0_plaintext,  /* plaintext                */
++    32,                                      /* octets in ciphertext     */
++    srtp_aes_icm_192_test_case_0_ciphertext, /* ciphertext               */
++    0,                                       /* */
++    NULL,                                    /* */
++    0,                                       /* */
++    NULL                                     /* pointer to next testcase */
++};
++
++/*
++ * KAT values for AES-256-CTR self-test.  These
++ * values came from section 7 of RFC 6188.
++ */
++/* clang-format off */
++static const uint8_t srtp_aes_icm_256_test_case_0_key[SRTP_AES_ICM_256_KEY_LEN_WSALT] = {
++    0x57, 0xf8, 0x2f, 0xe3, 0x61, 0x3f, 0xd1, 0x70,
++    0xa8, 0x5e, 0xc9, 0x3c, 0x40, 0xb1, 0xf0, 0x92,
++    0x2e, 0xc4, 0xcb, 0x0d, 0xc0, 0x25, 0xb5, 0x82,
++    0x72, 0x14, 0x7c, 0xc4, 0x38, 0x94, 0x4a, 0x98,
++    0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
++    0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd
++};
++/* clang-format on */
++
++/* clang-format off */
++static uint8_t srtp_aes_icm_256_test_case_0_nonce[16] = {
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_icm_256_test_case_0_plaintext[32] =  {
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_aes_icm_256_test_case_0_ciphertext[32] = {
++    0x92, 0xbd, 0xd2, 0x8a, 0x93, 0xc3, 0xf5, 0x25,
++    0x11, 0xc6, 0x77, 0xd0, 0x8b, 0x55, 0x15, 0xa4,
++    0x9d, 0xa7, 0x1b, 0x23, 0x78, 0xa8, 0x54, 0xf6,
++    0x70, 0x50, 0x75, 0x6d, 0xed, 0x16, 0x5b, 0xac
++};
++/* clang-format on */
++
++static const srtp_cipher_test_case_t srtp_aes_icm_256_test_case_0 = {
++    SRTP_AES_ICM_256_KEY_LEN_WSALT,          /* octets in key            */
++    srtp_aes_icm_256_test_case_0_key,        /* key                      */
++    srtp_aes_icm_256_test_case_0_nonce,      /* packet index             */
++    32,                                      /* octets in plaintext      */
++    srtp_aes_icm_256_test_case_0_plaintext,  /* plaintext                */
++    32,                                      /* octets in ciphertext     */
++    srtp_aes_icm_256_test_case_0_ciphertext, /* ciphertext               */
++    0,                                       /* */
++    NULL,                                    /* */
++    0,                                       /* */
++    NULL                                     /* pointer to next testcase */
++};
++
++/*
++ * This is the function table for this crypto engine.
++ * note: the encrypt function is identical to the decrypt function
++ */
++const srtp_cipher_type_t srtp_aes_icm_128 = {
++    srtp_aes_icm_mbedtls_alloc,           /* */
++    srtp_aes_icm_mbedtls_dealloc,         /* */
++    srtp_aes_icm_mbedtls_context_init,    /* */
++    0,                                    /* set_aad */
++    srtp_aes_icm_mbedtls_encrypt,         /* */
++    srtp_aes_icm_mbedtls_encrypt,         /* */
++    srtp_aes_icm_mbedtls_set_iv,          /* */
++    0,                                    /* get_tag */
++    srtp_aes_icm_128_mbedtls_description, /* */
++    &srtp_aes_icm_128_test_case_0,        /* */
++    SRTP_AES_ICM_128                      /* */
++};
++
++/*
++ * This is the function table for this crypto engine.
++ * note: the encrypt function is identical to the decrypt function
++ */
++const srtp_cipher_type_t srtp_aes_icm_192 = {
++    srtp_aes_icm_mbedtls_alloc,           /* */
++    srtp_aes_icm_mbedtls_dealloc,         /* */
++    srtp_aes_icm_mbedtls_context_init,    /* */
++    0,                                    /* set_aad */
++    srtp_aes_icm_mbedtls_encrypt,         /* */
++    srtp_aes_icm_mbedtls_encrypt,         /* */
++    srtp_aes_icm_mbedtls_set_iv,          /* */
++    0,                                    /* get_tag */
++    srtp_aes_icm_192_mbedtls_description, /* */
++    &srtp_aes_icm_192_test_case_0,        /* */
++    SRTP_AES_ICM_192                      /* */
++};
++
++/*
++ * This is the function table for this crypto engine.
++ * note: the encrypt function is identical to the decrypt function
++ */
++const srtp_cipher_type_t srtp_aes_icm_256 = {
++    srtp_aes_icm_mbedtls_alloc,           /* */
++    srtp_aes_icm_mbedtls_dealloc,         /* */
++    srtp_aes_icm_mbedtls_context_init,    /* */
++    0,                                    /* set_aad */
++    srtp_aes_icm_mbedtls_encrypt,         /* */
++    srtp_aes_icm_mbedtls_encrypt,         /* */
++    srtp_aes_icm_mbedtls_set_iv,          /* */
++    0,                                    /* get_tag */
++    srtp_aes_icm_256_mbedtls_description, /* */
++    &srtp_aes_icm_256_test_case_0,        /* */
++    SRTP_AES_ICM_256                      /* */
++};
+diff --git a/crypto/hash/hmac_mbedtls.c b/crypto/hash/hmac_mbedtls.c
+new file mode 100644
+index 0000000..78ad71c
+--- /dev/null
++++ b/crypto/hash/hmac_mbedtls.c
+@@ -0,0 +1,253 @@
++/*
++ * hmac_mbedtls.c
++ *
++ * Implementation of hmac srtp_auth_type_t that leverages Mbedtls
++ *
++ * YongCheng Yang
++ */
++/*
++ *
++ * Copyright(c) 2013-2017, Cisco Systems, Inc.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *   Redistributions of source code must retain the above copyright
++ *   notice, this list of conditions and the following disclaimer.
++ *
++ *   Redistributions in binary form must reproduce the above
++ *   copyright notice, this list of conditions and the following
++ *   disclaimer in the documentation and/or other materials provided
++ *   with the distribution.
++ *
++ *   Neither the name of the Cisco Systems, Inc. nor the names of its
++ *   contributors may be used to endorse or promote products derived
++ *   from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
++ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
++ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
++ * OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
++
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
++
++#include "auth.h"
++#include "alloc.h"
++#include "err.h" /* for srtp_debug */
++#include "mbedtls/md.h"
++
++#define SHA1_DIGEST_SIZE 20
++
++/* the debug module for authentiation */
++
++srtp_debug_module_t srtp_mod_hmac = {
++    0,                   /* debugging is off by default */
++    "hmac sha-1 mbedtls" /* printable name for module   */
++};
++
++static srtp_err_status_t srtp_hmac_mbedtls_alloc(srtp_auth_t **a,
++                                                 int key_len,
++                                                 int out_len)
++{
++    extern const srtp_auth_type_t srtp_hmac;
++
++    debug_print(srtp_mod_hmac, "allocating auth func with key length %d",
++                key_len);
++    debug_print(srtp_mod_hmac, "                          tag length %d",
++                out_len);
++
++    /* check output length - should be less than 20 bytes */
++    if (key_len > SHA1_DIGEST_SIZE) {
++        return srtp_err_status_bad_param;
++    }
++    /* check output length - should be less than 20 bytes */
++    if (out_len > SHA1_DIGEST_SIZE) {
++        return srtp_err_status_bad_param;
++    }
++
++    *a = (srtp_auth_t *)srtp_crypto_alloc(sizeof(srtp_auth_t));
++    if (*a == NULL) {
++        return srtp_err_status_alloc_fail;
++    }
++    // allocate the buffer of mbedtls context.
++    (*a)->state = srtp_crypto_alloc(sizeof(mbedtls_md_context_t));
++    if ((*a)->state == NULL) {
++        srtp_crypto_free(*a);
++        *a = NULL;
++        return srtp_err_status_alloc_fail;
++    }
++    mbedtls_md_init((mbedtls_md_context_t *)(*a)->state);
++
++    /* set pointers */
++    (*a)->type = &srtp_hmac;
++    (*a)->out_len = out_len;
++    (*a)->key_len = key_len;
++    (*a)->prefix_len = 0;
++
++    return srtp_err_status_ok;
++}
++
++static srtp_err_status_t srtp_hmac_mbedtls_dealloc(srtp_auth_t *a)
++{
++    mbedtls_md_context_t *hmac_ctx;
++    hmac_ctx = (mbedtls_md_context_t *)a->state;
++    mbedtls_md_free(hmac_ctx);
++    srtp_crypto_free(hmac_ctx);
++    /* zeroize entire state*/
++    octet_string_set_to_zero(a, sizeof(srtp_auth_t));
++
++    /* free memory */
++    srtp_crypto_free(a);
++
++    return srtp_err_status_ok;
++}
++
++static srtp_err_status_t srtp_hmac_mbedtls_start(void *statev)
++{
++    mbedtls_md_context_t *state = (mbedtls_md_context_t *)statev;
++    if (mbedtls_md_hmac_reset(state) != 0)
++        return srtp_err_status_auth_fail;
++
++    return srtp_err_status_ok;
++}
++
++static srtp_err_status_t srtp_hmac_mbedtls_init(void *statev,
++                                                const uint8_t *key,
++                                                int key_len)
++{
++    mbedtls_md_context_t *state = (mbedtls_md_context_t *)statev;
++    const mbedtls_md_info_t *info = NULL;
++
++    info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA1);
++    if (info == NULL)
++        return srtp_err_status_auth_fail;
++
++    if (mbedtls_md_setup(state, info, 1) != 0)
++        return srtp_err_status_auth_fail;
++
++    debug_print(srtp_mod_hmac, "mbedtls setup, name: %s",
++                mbedtls_md_get_name(info));
++    debug_print(srtp_mod_hmac, "mbedtls setup, size: %d",
++                mbedtls_md_get_size(info));
++
++    if (mbedtls_md_hmac_starts(state, key, key_len) != 0)
++        return srtp_err_status_auth_fail;
++
++    return srtp_err_status_ok;
++}
++
++static srtp_err_status_t srtp_hmac_mbedtls_update(void *statev,
++                                                  const uint8_t *message,
++                                                  int msg_octets)
++{
++    mbedtls_md_context_t *state = (mbedtls_md_context_t *)statev;
++
++    debug_print(srtp_mod_hmac, "input: %s",
++                srtp_octet_string_hex_string(message, msg_octets));
++
++    if (mbedtls_md_hmac_update(state, message, msg_octets) != 0)
++        return srtp_err_status_auth_fail;
++
++    return srtp_err_status_ok;
++}
++
++static srtp_err_status_t srtp_hmac_mbedtls_compute(void *statev,
++                                                   const uint8_t *message,
++                                                   int msg_octets,
++                                                   int tag_len,
++                                                   uint8_t *result)
++{
++    mbedtls_md_context_t *state = (mbedtls_md_context_t *)statev;
++    uint8_t hash_value[SHA1_DIGEST_SIZE];
++    int i;
++
++    /* check tag length, return error if we can't provide the value expected */
++    if (tag_len > SHA1_DIGEST_SIZE) {
++        return srtp_err_status_bad_param;
++    }
++
++    /* hash message, copy output into H */
++    if (mbedtls_md_hmac_update(statev, message, msg_octets) != 0)
++        return srtp_err_status_auth_fail;
++
++    if (mbedtls_md_hmac_finish(state, hash_value) != 0)
++        return srtp_err_status_auth_fail;
++
++    /* copy hash_value to *result */
++    for (i = 0; i < tag_len; i++) {
++        result[i] = hash_value[i];
++    }
++
++    debug_print(srtp_mod_hmac, "output: %s",
++                srtp_octet_string_hex_string(hash_value, tag_len));
++
++    return srtp_err_status_ok;
++}
++
++/* begin test case 0 */
++/* clang-format off */
++static const uint8_t srtp_hmac_test_case_0_key[SHA1_DIGEST_SIZE] = {
++    0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
++    0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
++    0x0b, 0x0b, 0x0b, 0x0b
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_hmac_test_case_0_data[8] = {
++    0x48, 0x69, 0x20, 0x54, 0x68, 0x65, 0x72, 0x65 /* "Hi There" */
++};
++/* clang-format on */
++
++/* clang-format off */
++static const uint8_t srtp_hmac_test_case_0_tag[SHA1_DIGEST_SIZE] = {
++    0xb6, 0x17, 0x31, 0x86, 0x55, 0x05, 0x72, 0x64,
++    0xe2, 0x8b, 0xc0, 0xb6, 0xfb, 0x37, 0x8c, 0x8e,
++    0xf1, 0x46, 0xbe, 0x00
++};
++/* clang-format on */
++
++static const srtp_auth_test_case_t srtp_hmac_test_case_0 = {
++    sizeof(srtp_hmac_test_case_0_key),  /* octets in key            */
++    srtp_hmac_test_case_0_key,          /* key                      */
++    sizeof(srtp_hmac_test_case_0_data), /* octets in data           */
++    srtp_hmac_test_case_0_data,         /* data                     */
++    sizeof(srtp_hmac_test_case_0_tag),  /* octets in tag            */
++    srtp_hmac_test_case_0_tag,          /* tag                      */
++    NULL                                /* pointer to next testcase */
++};
++
++/* end test case 0 */
++
++static const char srtp_hmac_mbedtls_description[] =
++    "hmac sha-1 authentication function using mbedtls";
++
++/*
++ * srtp_auth_type_t hmac is the hmac metaobject
++ */
++
++const srtp_auth_type_t srtp_hmac = {
++    srtp_hmac_mbedtls_alloc,       /* */
++    srtp_hmac_mbedtls_dealloc,     /* */
++    srtp_hmac_mbedtls_init,        /* */
++    srtp_hmac_mbedtls_compute,     /* */
++    srtp_hmac_mbedtls_update,      /* */
++    srtp_hmac_mbedtls_start,       /* */
++    srtp_hmac_mbedtls_description, /* */
++    &srtp_hmac_test_case_0,        /* */
++    SRTP_HMAC_SHA1                 /* */
++};
+diff --git a/crypto/include/aes_gcm.h b/crypto/include/aes_gcm.h
+index 4d6031f..325dfef 100644
+--- a/crypto/include/aes_gcm.h
++++ b/crypto/include/aes_gcm.h
+@@ -64,6 +64,25 @@ typedef struct {
+ 
+ #endif /* OPENSSL */
+ 
++#ifdef MBEDTLS
++#define MAX_AD_SIZE 2048
++#include <mbedtls/aes.h>
++#include <mbedtls/gcm.h>
++
++typedef struct {
++    int key_size;
++    int tag_len;
++    int aad_size;
++    int iv_len;
++    uint8_t iv[12];
++    uint8_t tag[16];
++    uint8_t aad[MAX_AD_SIZE];
++    mbedtls_gcm_context *ctx;
++    srtp_cipher_direction_t dir;
++} srtp_aes_gcm_ctx_t;
++
++#endif /* MBEDTLS */
++
+ #ifdef NSS
+ 
+ #include <nss.h>
+diff --git a/crypto/include/aes_icm_ext.h b/crypto/include/aes_icm_ext.h
+index ad306dd..319945c 100644
+--- a/crypto/include/aes_icm_ext.h
++++ b/crypto/include/aes_icm_ext.h
+@@ -63,6 +63,20 @@ typedef struct {
+ 
+ #endif /* OPENSSL */
+ 
++#ifdef MBEDTLS
++
++#include <mbedtls/aes.h>
++typedef struct {
++    v128_t counter; /* holds the counter value          */
++    v128_t offset;  /* initial offset value             */
++    v128_t stream_block;
++    size_t nc_off;
++    int key_size;
++    mbedtls_aes_context *ctx;
++} srtp_aes_icm_ctx_t;
++
++#endif /* MBEDTLS */
++
+ #ifdef NSS
+ 
+ #include <nss.h>
+diff --git a/crypto/include/cipher_types.h b/crypto/include/cipher_types.h
+index 18f0328..f6abd02 100644
+--- a/crypto/include/cipher_types.h
++++ b/crypto/include/cipher_types.h
+@@ -74,6 +74,9 @@ extern srtp_debug_module_t srtp_mod_aes_icm;
+ #ifdef OPENSSL
+ extern srtp_debug_module_t srtp_mod_aes_gcm;
+ #endif
++#ifdef MBEDTLS
++extern srtp_debug_module_t srtp_mod_aes_gcm;
++#endif
+ #ifdef NSS
+ extern srtp_debug_module_t srtp_mod_aes_gcm;
+ #endif
+-- 
+2.17.1
+
