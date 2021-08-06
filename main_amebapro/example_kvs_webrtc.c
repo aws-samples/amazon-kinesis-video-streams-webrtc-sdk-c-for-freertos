@@ -404,6 +404,8 @@ void audio_rx_complete_irq(u32 arg, u8 *pbuf)
     audio_set_rx_page(&audio_obj); // submit a new page for receive   
 }
 
+u8 audio_init_done = 0;
+
 PVOID sendAudioPackets(PVOID args)
 {
     STATUS retStatus = STATUS_SUCCESS;
@@ -449,6 +451,8 @@ PVOID sendAudioPackets(PVOID args)
     opus_encoder_ctl(opus_encoder, OPUS_SET_BITRATE(500*30)); 
     opus_encoder_ctl(opus_encoder, OPUS_SET_LSB_DEPTH(8)); // Input precision in bits, between 8 and 24 (default: 24).    
 #endif
+
+    audio_init_done = 1;
 
     short buf_16bit[TX_PAGE_SIZE/2];
     unsigned char buf_8bit[TX_PAGE_SIZE/2];
@@ -583,9 +587,11 @@ VOID sampleFrameHandler(UINT64 customData, PFrame pFrame)
     DLOGV("Frame received. TrackId: %" PRIu64 ", Size: %u, Flags %u", pFrame->trackId, pFrame->size, pFrame->flags);
     memcpy((void*)buf_8bit_recv, (void*)pFrame->frameData, pFrame->size);    
 
-    if( xQueueSendFromISR(audio_queue_recv, (void *)buf_8bit_recv, NULL) != pdTRUE){
-        DLOGV("\n\rAudio_sound queue full.\n\r");
-    } 
+    if (audio_init_done) {
+        if( xQueueSendFromISR(audio_queue_recv, (void *)buf_8bit_recv, NULL) != pdTRUE){
+            DLOGV("\n\rAudio_sound queue full.\n\r");
+        }
+    }
 
     PSampleStreamingSession pSampleStreamingSession = (PSampleStreamingSession) customData;
     if (pSampleStreamingSession->firstFrame) {
