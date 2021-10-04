@@ -15,10 +15,18 @@ jobs:
         uses: actions/checkout@v2
       - name: Build
         run: |
-          pwd
-          cd ~
-          pwd
           git clone https://github.com/espressif/esp-idf.git
           cd esp-idf
           git submodule update --init --recursive
           cd components/mbedtls/mbedtls
+          git am ../../../../patch/mbedtls/*
+          cd ../../..
+          ./install.sh
+          . export.sh
+          cd main/lib/libwebsockets
+          git am ../../../patch/libwebsockets/*
+          cd ../libsrtp
+          git am ../../../patch/libsrtp/*
+          cd ../../..
+          idf.py build
+
