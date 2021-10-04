@@ -12,29 +12,19 @@ git submodule update --init --recursive
 
 ## Reference platform
 
-We use [ESP IDF 4.1](https://github.com/espressif/esp-idf/releases/tag/v4.1) and the [ESP-Wrover-Kit](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html) as the reference platform. Please follow the [Espressif instructions](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html) to set up the environment. 
+We use [ESP IDF 4.3.1](https://github.com/espressif/esp-idf/releases/tag/v4.3.1) and the [ESP-Wrover-Kit](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html) as the reference platform. Please follow the [Espressif instructions](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html) to set up the environment. 
 
- There are two modifications you need to apply to the ESP IDF.
+ There is one modification you need to apply to the ESP IDF.
 
-First, after fetching the esp-idf, please apply the patches located in the patch/esp-idf directory of this project to your IDF installation:
+We have used [mbedtls-2.16.11-idf](https://github.com/espressif/mbedtls) in this project. 
 
-```
-esp-idf$ git am your_demo_path/patch/esp-idf/*
-```
-
-Second, make sure the version of mbedTLS in your IDF installation is [2.16.6](https://github.com/ARMmbed/mbedtls/releases/tag/mbedtls-2.16.6) or later.  We have used [mbedtls-2.16.6](https://github.com/ARMmbed/mbedtls/releases/tag/mbedtls-2.16.6) in this project. 
-
-WebRTC needs the functionality of DTLS-for-SRTP ([RFC5764](https://tools.ietf.org/html/rfc5764)). mbedTLS does not support this specification when this project was created. There is one pull request in mbedTLS ([#3235](https://github.com/ARMmbed/mbedtls/pull/3235#)) in progress for adding that support.  Before mbedTLS adopts that pull request,  we need to apply it on top of mbedTLS 2.16.6.  If your IDF installation has a mbedTLS version lower than 2.16.6, please upgrade it. 
+WebRTC needs the functionality of DTLS-for-SRTP ([RFC5764](https://tools.ietf.org/html/rfc5764)). mbedTLS does not support this specification when this project was created. There is one pull request in mbedTLS ([#3235](https://github.com/ARMmbed/mbedtls/pull/3235#)) in progress for adding that support.  Before mbedTLS adopts that pull request,  we need to apply it on top of mbedtls-2.16.11-idf.  If your IDF installation has a mbedTLS version lower than 2.16.11-idf, please upgrade it. 
 
 In this project, we have included all patches from the pull request [pr1813-2.16.6](https://gitlab.linphone.org/BC/public/external/mbedtls/tree/pr1813-2.16.6) under the patches/mbedtls directory, therefore you do not need to pull those patches by yourself.  
 
-Apply patches located in the patch/mbedtls directory of this project.
+Apply the patch located in the patch/mbedtls directory of this project.
 
 ```
-esp-idf/components/mbedtls$ rm -rf mbedtls/
-esp-idf/components/mbedtls$ git clone git@github.com:ARMmbed/mbedtls.git
-esp-idf/components/mbedtls$ cd mbedtls/
-esp-idf/components/mbedtls/mbedtls$ git checkout mbedtls-2.16.6
 esp-idf/components/mbedtls/mbedtls$ git am your_demo_path/patch/mbedtls/*
 ```
 
@@ -58,7 +48,7 @@ This project uses v2.3.0 of libsrtp.  Please apply patches located in patch/libs
 main/lib/libsrtp$ git am ../../../patch/libsrtp/*
 ```
 
-### [mbedtls-2.16.6](https://github.com/ARMmbed/mbedtls/releases/tag/mbedtls-2.16.6)
+### [mbedtls-2.16.11-idf](https://github.com/espressif/mbedtls)
 
 This has been described in the “Reference platform” section above.
 
