@@ -1,0 +1,23 @@
+name: CI Checks
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone This Repo
+        uses: actions/checkout@v2
+      - name: Build
+        run: |
+          pwd
+          cd ~
+          git checkout https://github.com/espressif/esp-idf.git
+          cd esp-idf
+          git submodule update --init --recursive
+          cd components/mbedtls/mbedtls
