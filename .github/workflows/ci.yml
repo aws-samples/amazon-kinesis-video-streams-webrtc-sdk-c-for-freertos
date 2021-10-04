@@ -17,7 +17,8 @@ jobs:
         run: |
           pwd
           cd ~
-          git checkout https://github.com/espressif/esp-idf.git
+          pwd
+          git clone https://github.com/espressif/esp-idf.git
           cd esp-idf
           git submodule update --init --recursive
           cd components/mbedtls/mbedtls
