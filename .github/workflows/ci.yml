@@ -23,7 +23,7 @@ jobs:
           cd ../../..
           ./install.sh
           . export.sh
-          cd main/lib/libwebsockets
+          cd ../main/lib/libwebsockets
           git am ../../../patch/libwebsockets/*
           cd ../libsrtp
           git am ../../../patch/libsrtp/*
