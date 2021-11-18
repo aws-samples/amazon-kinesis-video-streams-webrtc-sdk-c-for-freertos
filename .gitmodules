@@ -4,9 +4,6 @@
 [submodule "main/lib/libsrtp"]
 	path = main/lib/libsrtp
 	url = https://github.com/cisco/libsrtp.git
-[submodule "main/lib/amazon-kinesis-video-streams-pic"]
-	path = main/lib/amazon-kinesis-video-streams-pic
-	url = https://github.com/iotlabtpe/amazon-kinesis-video-streams-pic.git
 [submodule "main/lib/amazon-kinesis-video-streams-producer-c"]
 	path = main/lib/amazon-kinesis-video-streams-producer-c
 	url = https://github.com/iotlabtpe/amazon-kinesis-video-streams-producer-c.git
