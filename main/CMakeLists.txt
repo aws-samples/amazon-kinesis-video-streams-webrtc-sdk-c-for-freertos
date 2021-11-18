@@ -2,16 +2,7 @@ option(ENABLE_STREAMING "enable the streaming" ON)
 option(ENABLE_DATA_CHANNEL "enable the data channel" OFF)
 
 set(LIB_SOURCE_DIR "${CMAKE_SOURCE_DIR}/main/lib")
-set(LIBKVSPIC_NAME "amazon-kinesis-video-streams-pic")
-set(LIBKVSPIC_INCLUDE_DIRS "${LIB_SOURCE_DIR}/${LIBKVSPIC_NAME}/src/common/include" 
-                                "${LIB_SOURCE_DIR}/${LIBKVSPIC_NAME}/src/client/include"
-                                "${LIB_SOURCE_DIR}/${LIBKVSPIC_NAME}/src/utils/include"
-                                "${LIB_SOURCE_DIR}/${LIBKVSPIC_NAME}/src/mkvgen/include"
-                                "${LIB_SOURCE_DIR}/${LIBKVSPIC_NAME}/src/view/include"
-                                "${LIB_SOURCE_DIR}/${LIBKVSPIC_NAME}/src/heap/include"
-                                "${LIB_SOURCE_DIR}/${LIBKVSPIC_NAME}/src/state/include")
-set(LIBKVSCOMMONLWS_NAME "amazon-kinesis-video-streams-producer-c")
-set(LIBKVSCOMMONLWS_INCLUDE_DIRS "${LIB_SOURCE_DIR}/${LIBKVSCOMMONLWS_NAME}/src/include")
+
 set(LIBKVSWEBRTC_NAME "amazon-kinesis-video-streams-webrtc-sdk-c")
 set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/include"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source"
@@ -24,7 +15,7 @@ set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/includ
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Signaling"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Stun")
 
-set(OPEN_SRC_INCLUDE_DIRS "${LIBKVSPIC_INCLUDE_DIRS}" "${LIBKVSCOMMONLWS_INCLUDE_DIRS}" "${LIBKVSWEBRTC_INCLUDE_DIRS}")
+set(OPEN_SRC_INCLUDE_DIRS "${LIBKVSWEBRTC_INCLUDE_DIRS}")
 idf_component_register(SRCS "kvswebrtc_example_main.c" "Common.c" "kvsWebRTCClientMaster.c"
                     INCLUDE_DIRS "." "${OPEN_SRC_INCLUDE_DIRS}"
                     REQUIRES nvs_flash mbedtls lwip fatfs esp_common pthread
@@ -89,28 +80,6 @@ if(ENABLE_STREAMING)
         set(KVS_LIBSRTP_INCLUDE_DIRS "${LIB_SOURCE_DIR}/libsrtp/include")
 endif()
 
-message("############################## start pic ##############################")
-add_subdirectory(lib/amazon-kinesis-video-streams-pic)
-set_property(TARGET kvspicState APPEND PROPERTY LINK_LIBRARIES ${esp_common_lib} ${pthread_lib})
-set_property(TARGET kvspicState APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${esp_common_lib} ${pthread_lib})
-set_property(TARGET kvspicUtils APPEND PROPERTY LINK_LIBRARIES ${esp_common_lib} ${pthread_lib})
-set_property(TARGET kvspicUtils APPEND PROPERTY INTERFACE_LINK_LIBRARIES ${esp_common_lib} ${pthread_lib})
-target_link_libraries(${COMPONENT_LIB} PUBLIC kvspicState kvspicUtils)
-
-message("############################## start producer c ##############################")
-set(BUILD_DEPENDENCIES OFF CACHE BOOL "Whether or not to build depending libraries from source")
-set(USE_OPENSSL OFF CACHE BOOL "Use openssl as crypto library")
-set(USE_MBEDTLS ON CACHE BOOL "Use openssl as crypto library")
-set(BUILD_COMMON_LWS ON CACHE BOOL "Whether or not to build ProducerC libwebsockets common library")
-set(BUILD_COMMON_CURL OFF CACHE BOOL "Whether or not to build ProducerC curl common library")
-set(BUILD_KVSPIC OFF CACHE BOOL "Whether or not to build the part of kvs pic")
-set(OPEN_SRC_INCLUDE_DIRS "${OPEN_SRC_INCLUDE_DIRS}" "${KVS_LIBWEBSOCKETS_INCLUDE_DIRS}")
-add_subdirectory(lib/amazon-kinesis-video-streams-producer-c)
-
-set_property(TARGET kvsCommonLws APPEND PROPERTY LINK_LIBRARIES kvspicUtils websockets ${mbedtls_lib})
-set_property(TARGET kvsCommonLws APPEND PROPERTY INTERFACE_LINK_LIBRARIES kvspicUtils websockets ${mbedtls_lib})
-target_link_libraries(${COMPONENT_LIB} PUBLIC kvsCommonLws)
-
 message("############################## start webrtc ##############################")
 set(BUILD_DEPENDENCIES OFF CACHE BOOL "Whether or not to build depending libraries from source")
 set(BUILD_STATIC_LIBS ON CACHE BOOL "Build all libraries statically. (This includes third-party libraries.)")
@@ -119,20 +88,28 @@ set(OPEN_SRC_INCLUDE_DIRS ${OPEN_SRC_INCLUDE_DIRS} ${KVS_LIBWEBSOCKETS_INCLUDE_D
 
 add_subdirectory(lib/amazon-kinesis-video-streams-webrtc-sdk-c)
 
+set_property(TARGET kvspicState APPEND PROPERTY LINK_LIBRARIES
+        ${esp_common_lib} ${pthread_lib})
+set_property(TARGET kvspicState APPEND PROPERTY INTERFACE_LINK_LIBRARIES
+        ${esp_common_lib} ${pthread_lib})
+
+set_property(TARGET kvspicUtils APPEND PROPERTY LINK_LIBRARIES
+        ${esp_common_lib} ${pthread_lib})
+set_property(TARGET kvspicUtils APPEND PROPERTY INTERFACE_LINK_LIBRARIES
+        ${esp_common_lib} ${pthread_lib})
+
 set_property(TARGET kvsWebrtcSignalingClient APPEND PROPERTY LINK_LIBRARIES
-        kvspicUtils
+        ${esp_common_lib} ${pthread_lib}
         websockets
-        ${mbedtls_lib}
-        kvsCommonLws)
+        ${mbedtls_lib})
 set_property(TARGET kvsWebrtcSignalingClient APPEND PROPERTY INTERFACE_LINK_LIBRARIES
-        kvspicUtils
+        ${esp_common_lib} ${pthread_lib}
         websockets
-        ${mbedtls_lib}
-        kvsCommonLws)
+        ${mbedtls_lib})
 target_link_libraries(${COMPONENT_LIB} PUBLIC kvsWebrtcSignalingClient)
 
 set_property(TARGET kvsWebrtcClient APPEND PROPERTY LINK_LIBRARIES
-        kvspicUtils
+        ${esp_common_lib} ${pthread_lib}
         mbedtls
         ${mbedtls_lib}
         ${nvs_flash_lib})
@@ -142,7 +119,7 @@ if(ENABLE_STREAMING)
 endif()
 
 set_property(TARGET kvsWebrtcClient APPEND PROPERTY INTERFACE_LINK_LIBRARIES
-        kvspicUtils
+        ${esp_common_lib} ${pthread_lib}
         mbedtls
         ${mbedtls_lib}
         ${nvs_flash_lib})
