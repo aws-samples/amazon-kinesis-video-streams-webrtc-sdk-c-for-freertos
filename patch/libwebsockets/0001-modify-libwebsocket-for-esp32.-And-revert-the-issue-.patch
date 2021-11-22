@@ -1,0 +1,113 @@
+From d3bca574e62a8ef664d0cf4d74e5704079cb37e5 Mon Sep 17 00:00:00 2001
+From: ycyang1229 <yc.yang1229@gmail.com>
+Date: Mon, 22 Nov 2021 12:13:15 +0800
+Subject: [PATCH] modify libwebsocket for esp32. And revert the issue
+ https://github.com/warmcat/libwebsockets/issues/2325.
+
+---
+ CMakeLists-implied-options.txt       | 2 +-
+ lib/core-net/service.c               | 1 -
+ lib/plat/freertos/freertos-service.c | 7 +++++--
+ lib/tls/mbedtls/mbedtls-client.c     | 5 +++--
+ lib/tls/tls.c                        | 2 +-
+ 5 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/CMakeLists-implied-options.txt b/CMakeLists-implied-options.txt
+index 1675c693..16da8742 100644
+--- a/CMakeLists-implied-options.txt
++++ b/CMakeLists-implied-options.txt
+@@ -266,7 +266,7 @@ if (LWS_PLAT_FREERTOS)
+  set(LWS_HAVE_MALLOC 1)
+  set(LWS_HAVE_REALLOC 1)
+  set(LWS_HAVE_GETIFADDRS 1)
+- set(LWS_WITH_CUSTOM_HEADERS 0)
++ set(LWS_WITH_CUSTOM_HEADERS 1)
+ endif()
+ 
+ #if (LWS_WITH_ESP32)
+diff --git a/lib/core-net/service.c b/lib/core-net/service.c
+index 30bf42a4..e71efe90 100644
+--- a/lib/core-net/service.c
++++ b/lib/core-net/service.c
+@@ -347,7 +347,6 @@ lws_service_adjust_timeout(struct lws_context *context, int timeout_ms, int tsi)
+ 	 */
+ 
+ 	} lws_end_foreach_dll(d);
+-
+ 	return timeout_ms;
+ }
+ 
+diff --git a/lib/plat/freertos/freertos-service.c b/lib/plat/freertos/freertos-service.c
+index 6170a1c5..41d7f90f 100644
+--- a/lib/plat/freertos/freertos-service.c
++++ b/lib/plat/freertos/freertos-service.c
+@@ -99,9 +99,9 @@ _lws_plat_service_tsi(struct lws_context *context, int timeout_ms, int tsi)
+ 	/*
+ 	 * is there anybody with pending stuff that needs service forcing?
+ 	 */
+-again:
+-	if (lws_service_adjust_timeout(context, 1, tsi)) {
+ 
++	if (lws_service_adjust_timeout(context, 1, tsi)) {
++again:
+ 		a = 0;
+ 		if (timeout_us) {
+ 			lws_usec_t us;
+@@ -139,6 +139,7 @@ again:
+ 			}
+ 
+ 			n = select(max_fd + 1, &readfds, &writefds, &errfds, ptv);
++
+ 			n = 0;
+ 
+ 			for (m = 0; m < (int)pt->fds_count; m++) {
+@@ -179,6 +180,7 @@ again:
+ 		a = 1;
+ 
+ 	m = lws_service_flag_pending(context, tsi);
++
+ 	if (m)
+ 		c = -1; /* unknown limit */
+ 	else
+@@ -197,6 +199,7 @@ again:
+ 		c--;
+ 
+ 		m = lws_service_fd_tsi(context, &pt->fds[n], tsi);
++
+ 		if (m < 0)
+ 			return -1;
+ 		/* if something closed, retry this slot */
+diff --git a/lib/tls/mbedtls/mbedtls-client.c b/lib/tls/mbedtls/mbedtls-client.c
+index 519483e7..88c12054 100644
+--- a/lib/tls/mbedtls/mbedtls-client.c
++++ b/lib/tls/mbedtls/mbedtls-client.c
+@@ -94,10 +94,11 @@ lws_ssl_client_bio_create(struct lws *wsi)
+ 				_WSI_TOKEN_CLIENT_ALPN) > 0)
+ 			alpn_comma = hostname;
+ 	}
+-
++	//#TBD
++	#if 0
+ 	lwsl_info("%s: %s: client conn sending ALPN list '%s'\n",
+ 		  __func__, lws_wsi_tag(wsi), alpn_comma);
+-
++	#endif
+ 	protos.len = (uint8_t)lws_alpn_comma_to_openssl(alpn_comma, protos.data,
+ 					       sizeof(protos.data) - 1);
+ 
+diff --git a/lib/tls/tls.c b/lib/tls/tls.c
+index cd7a8bbc..78eefd92 100644
+--- a/lib/tls/tls.c
++++ b/lib/tls/tls.c
+@@ -147,7 +147,7 @@ int alloc_file(struct lws_context *context, const char *filename, uint8_t **buf,
+ 	       lws_filepos_t *amount)
+ {
+ 	nvs_handle nvh;
+-	size_t s;
++	size_t s = 0;
+ 	int n = 0;
+ 
+ 	ESP_ERROR_CHECK(nvs_open("lws-station", NVS_READWRITE, &nvh));
+-- 
+2.17.1
+
