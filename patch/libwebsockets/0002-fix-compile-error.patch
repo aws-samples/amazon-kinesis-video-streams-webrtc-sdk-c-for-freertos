@@ -1,7 +1,7 @@
-From 4ea09d82e1a2ec14dfd14a13f43bb36ee1779d92 Mon Sep 17 00:00:00 2001
+From 89f9aad22fd0d94f3c8df20119cd281f09f42c84 Mon Sep 17 00:00:00 2001
 From: ycyang <yc.yang1229@gmail.com>
 Date: Wed, 14 Oct 2020 13:05:37 +0800
-Subject: [PATCH 2/2] fix compile error.
+Subject: [PATCH 2/3] fix compile error.
 
 ---
  lib/tls/mbedtls/mbedtls-client.c | 5 +++--
