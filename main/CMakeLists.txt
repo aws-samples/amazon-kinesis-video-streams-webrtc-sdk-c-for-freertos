@@ -16,8 +16,18 @@ set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/includ
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Stun")
 
 set(OPEN_SRC_INCLUDE_DIRS "${LIBKVSWEBRTC_INCLUDE_DIRS}")
-idf_component_register(SRCS "kvswebrtc_example_main.c" "Common.c" "kvsWebRTCClientMaster.c"
-                    INCLUDE_DIRS "." "${OPEN_SRC_INCLUDE_DIRS}"
+set(APP_INCLUDE_DIRS "./include")
+idf_component_register(SRCS "kvswebrtc_example_main.c"
+                            "AppCommon.c"
+                            "AppCredential.c"
+                            "AppDataChannel.c"
+                            "AppFileSrc.c"
+                            "AppMain.c"
+                            "AppMessageQueue.c"
+                            "AppMetrics.c"
+                            "AppSignaling.c"
+                            "AppWebRTC.c"
+                    INCLUDE_DIRS "." "${OPEN_SRC_INCLUDE_DIRS}" "${APP_INCLUDE_DIRS}"
                     REQUIRES nvs_flash mbedtls lwip fatfs esp_common pthread
                     EMBED_FILES "cert.pem")
 

@@ -23,9 +23,11 @@
 #include "driver/sdmmc_host.h"
 #include "driver/sdspi_host.h"
 #include "sdmmc_cmd.h"
-#include "Samples.h"
+
 #include "esp_sntp.h"
 #include "esp_heap_caps.h"
+
+#include "AppMain.h"
 
 /* The examples use WiFi configuration that you can set via project configuration menu
 
@@ -282,8 +284,9 @@ void app_main(void)
     setenv("AWS_SECRET_ACCESS_KEY", CONFIG_AWS_SECRET_ACCESS_KEY, 1);
     setenv("AWS_KVS_LOG_LEVEL", CONFIG_AWS_KVS_LOG_LEVEL, 1);
     setenv("AWS_DEFAULT_REGION", CONFIG_AWS_DEFAULT_REGION, 1);
+    setenv("AWS_WEBRTC_CHANNEL", CONFIG_AWS_KVS_CHANNEL, 1);
     
-    kvsWebRTCClientMaster();
+    WebRTCAppMain(0, NULL);
 
     // All done, unmount partition and disable SDMMC or SPI peripheral
     esp_vfs_fat_sdmmc_unmount();
