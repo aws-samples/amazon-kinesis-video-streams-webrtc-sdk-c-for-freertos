@@ -176,23 +176,6 @@ void app_main(void)
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
 
-    // put the cert.pem into nvs.
-    {
-        nvs_handle nvh;
-        int n;
-        extern const char data_start[] asm("_binary_cert_pem_start");
-        extern const char data_end[]   asm("_binary_cert_pem_end");
-
-        if (nvs_open("lws-station", NVS_READWRITE, &nvh)) {
-            printf("%s: failed to open nvs\n", __func__);
-        }
-
-        n = nvs_set_blob(nvh, "cert.pem", data_start, data_end - data_start + 1);
-        if (n >= 0)
-            nvs_commit(nvh);
-
-        nvs_close(nvh);
-    }
     // initialize the fatfs and sd card.
     {   
         ESP_LOGI(TAG, "Initializing SD card");
@@ -280,11 +263,21 @@ void app_main(void)
         uint32_t freeSize = esp_get_free_heap_size();
         printf("The available size of heap:%d\n", freeSize);
     }
-    setenv("AWS_ACCESS_KEY_ID", CONFIG_AWS_ACCESS_KEY_ID, 1);
-    setenv("AWS_SECRET_ACCESS_KEY", CONFIG_AWS_SECRET_ACCESS_KEY, 1);
+
     setenv("AWS_KVS_LOG_LEVEL", CONFIG_AWS_KVS_LOG_LEVEL, 1);
     setenv("AWS_DEFAULT_REGION", CONFIG_AWS_DEFAULT_REGION, 1);
     setenv("AWS_WEBRTC_CHANNEL", CONFIG_AWS_KVS_CHANNEL, 1);
+    #define IOT_CREDENTIAL (0)
+    #if (IOT_CREDENTIAL == 0)
+    setenv("AWS_ACCESS_KEY_ID", CONFIG_AWS_ACCESS_KEY_ID, 1);
+    setenv("AWS_SECRET_ACCESS_KEY", CONFIG_AWS_SECRET_ACCESS_KEY, 1);
+    #else
+    setenv("AWS_IOT_CORE_CREDENTIAL_ENDPOINT", CONFIG_AWS_IOT_CORE_CREDENTIAL_ENDPOINT, 1);
+    setenv("AWS_IOT_CORE_CERT", CONFIG_AWS_IOT_CORE_CERT, 1);
+    setenv("AWS_IOT_CORE_PRIVATE_KEY", CONFIG_AWS_IOT_CORE_PRIVATE_KEY, 1);
+    setenv("AWS_IOT_CORE_ROLE_ALIAS", CONFIG_AWS_IOT_CORE_ROLE_ALIAS, 1);
+    setenv("AWS_IOT_CORE_THING_NAME", CONFIG)AWS_IOT_CORE_THING_NAME, 1);
+    #endif
     
     WebRTCAppMain(0, NULL);
 
