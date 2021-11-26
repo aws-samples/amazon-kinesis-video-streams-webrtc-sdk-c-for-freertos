@@ -12,8 +12,8 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-#ifndef __KINESIS_VIDEO_WEBRTC_APP_RTSP_SRC_INCLUDE__
-#define __KINESIS_VIDEO_WEBRTC_APP_RTSP_SRC_INCLUDE__
+#ifndef __KINESIS_VIDEO_WEBRTC_APP_FILE_SRC_INCLUDE__
+#define __KINESIS_VIDEO_WEBRTC_APP_FILE_SRC_INCLUDE__
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,4 +102,4 @@ STATUS detroyMediaSource(PMediaContext* ppMediaContext);
 #ifdef __cplusplus
 }
 #endif
-#endif /* __KINESIS_VIDEO_WEBRTC_APP_RTSP_SRC_INCLUDE__ */
+#endif /* __KINESIS_VIDEO_WEBRTC_APP_FILE_SRC_INCLUDE__ */
