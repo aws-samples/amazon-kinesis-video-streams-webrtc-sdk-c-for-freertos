@@ -18,7 +18,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <com/amazonaws/kinesis/video/webrtcclient/Include.h>
+#include <kvs/WebRTCClient.h>
 #include "AppConfig.h"
 #include "AppError.h"
 

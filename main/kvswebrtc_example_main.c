@@ -6,7 +6,7 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
-#include <string.h>
+#include <kvs_string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -28,6 +28,7 @@
 #include "esp_heap_caps.h"
 
 #include "AppMain.h"
+#include <time.h>
 
 /* The examples use WiFi configuration that you can set via project configuration menu
 
@@ -267,16 +268,16 @@ void app_main(void)
     setenv("AWS_KVS_LOG_LEVEL", CONFIG_AWS_KVS_LOG_LEVEL, 1);
     setenv("AWS_DEFAULT_REGION", CONFIG_AWS_DEFAULT_REGION, 1);
     setenv("AWS_WEBRTC_CHANNEL", CONFIG_AWS_KVS_CHANNEL, 1);
-    #define IOT_CREDENTIAL (0)
+    #define IOT_CREDENTIAL (1)
     #if (IOT_CREDENTIAL == 0)
     setenv("AWS_ACCESS_KEY_ID", CONFIG_AWS_ACCESS_KEY_ID, 1);
     setenv("AWS_SECRET_ACCESS_KEY", CONFIG_AWS_SECRET_ACCESS_KEY, 1);
     #else
-    setenv("AWS_IOT_CORE_CREDENTIAL_ENDPOINT", CONFIG_AWS_IOT_CORE_CREDENTIAL_ENDPOINT, 1);
-    setenv("AWS_IOT_CORE_CERT", CONFIG_AWS_IOT_CORE_CERT, 1);
-    setenv("AWS_IOT_CORE_PRIVATE_KEY", CONFIG_AWS_IOT_CORE_PRIVATE_KEY, 1);
-    setenv("AWS_IOT_CORE_ROLE_ALIAS", CONFIG_AWS_IOT_CORE_ROLE_ALIAS, 1);
-    setenv("AWS_IOT_CORE_THING_NAME", CONFIG)AWS_IOT_CORE_THING_NAME, 1);
+    setenv("AWS_IOT_CORE_CREDENTIAL_ENDPOINT", "c1dobek8hikl5f.credentials.iot.us-west-2.amazonaws.com", 1);
+    setenv("AWS_IOT_CORE_CERT", "/sdcard/webrtc_iot_certifcate.pem", 1);
+    setenv("AWS_IOT_CORE_PRIVATE_KEY", "/sdcard/webrtc_iot_private.key", 1);
+    setenv("AWS_IOT_CORE_ROLE_ALIAS", "webrtc_iot_role_alias", 1);
+    setenv("AWS_IOT_CORE_THING_NAME", "webrtc_iot_thing", 1);
     #endif
     
     WebRTCAppMain(0, NULL);

@@ -14,6 +14,10 @@
  */
 #define LOG_CLASS "AppCredential"
 #include "AppCredential.h"
+#include "stack_queue.h"
+#include "directory.h"
+#include "iot_credential_provider.h"
+#include "static_credential_provider.h"
 
 static STATUS traverseDirectoryPEMFileScan(UINT64 userData, DIR_ENTRY_TYPES entryType, PCHAR fullPath, PCHAR fileName)
 {

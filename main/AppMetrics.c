@@ -14,7 +14,7 @@
  */
 #define LOG_CLASS "AppMetrics"
 #include "AppMetrics.h"
-
+#include "filelogger.h"
 UINT32 getLogLevel(VOID)
 {
     PCHAR pLogLevel;

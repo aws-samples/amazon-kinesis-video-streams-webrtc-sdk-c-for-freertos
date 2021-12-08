@@ -20,6 +20,10 @@
 #include "AppFileSrc.h"
 #include "AppSignaling.h"
 #include "AppWebRTC.h"
+#include "hash_table.h"
+#include "timer_queue.h"
+#include "logger.h"
+#include "crc32.h"
 
 static PAppConfiguration gAppConfiguration = NULL; //!< for the system-level signal handler
 
