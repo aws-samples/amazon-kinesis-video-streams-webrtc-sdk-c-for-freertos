@@ -6,7 +6,7 @@ set(LIB_SOURCE_DIR "${CMAKE_SOURCE_DIR}/main/lib")
 set(LIBKVSWEBRTC_NAME "amazon-kinesis-video-streams-webrtc-sdk-c")
 set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/include"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source"
-                                "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/api_call"
+                                "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/api_call/light"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/credential"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/crypto"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Ice"
@@ -60,6 +60,50 @@ else()
         set(ENABLE_DATA_CHANNEL OFF CACHE BOOL "Enable support for data channel")
 endif()
 
+message("############################## start azure ##############################")
+set(AZURE_C_SHARED_UTILITY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/lib/azure-c-shared-utility)
+
+set(AZURE_C_SHARED_UTILITY_SRC
+    ${AZURE_C_SHARED_UTILITY_DIR}/adapters/lock_pthreads.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/buffer.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/consolelogger.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/crt_abstractions.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/doublylinkedlist.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/httpheaders.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/map.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/strings.c
+    ${AZURE_C_SHARED_UTILITY_DIR}/src/xlogging.c
+)
+
+set(AZURE_C_SHARED_UTILITY_INC
+    ${AZURE_C_SHARED_UTILITY_DIR}/inc
+    ${AZURE_C_SHARED_UTILITY_DIR}/deps/azure-macro-utils-c/inc
+    ${AZURE_C_SHARED_UTILITY_DIR}/deps/umock-c/inc
+)
+
+# setup library interface
+add_library(aziotsharedutil INTERFACE)
+target_include_directories(aziotsharedutil INTERFACE ${AZURE_C_SHARED_UTILITY_INC})
+
+# setup shared library
+add_library(aziotsharedutil-shared SHARED ${AZURE_C_SHARED_UTILITY_SRC})
+set_target_properties(aziotsharedutil-shared PROPERTIES POSITION_INDEPENDENT_CODE 1)
+set_target_properties(aziotsharedutil-shared PROPERTIES OUTPUT_NAME aziotsharedutil)
+target_include_directories(aziotsharedutil-shared PUBLIC ${AZURE_C_SHARED_UTILITY_INC})
+target_link_libraries(aziotsharedutil-shared PUBLIC
+    mbedtls mbedcrypto mbedx509
+    m
+)
+
+# setup static library
+add_library(aziotsharedutil-static STATIC ${AZURE_C_SHARED_UTILITY_SRC})
+set_target_properties(aziotsharedutil-static PROPERTIES OUTPUT_NAME aziotsharedutil)
+target_include_directories(aziotsharedutil-static PUBLIC ${AZURE_C_SHARED_UTILITY_INC})
+target_link_libraries(aziotsharedutil-static PUBLIC
+    mbedtls mbedcrypto mbedx509
+    m
+)
+
 message("############################## start llhttp ##############################")
 add_subdirectory(lib/libllhttp)
 set_property(TARGET llhttp APPEND PROPERTY LINK_LIBRARIES
@@ -85,6 +129,7 @@ target_link_libraries(${COMPONENT_LIB} PUBLIC wslay)
 set(KVS_LIBWSLAY_INCLUDE_DIRS "${LIB_SOURCE_DIR}/private-wslay/lib/includes" "${CMAKE_BINARY_DIR}/esp-idf/main/lib/private-wslay/lib/includes")
 message("KVS_LIBWSLAY_INCLUDE_DIRS:${KVS_LIBWSLAY_INCLUDE_DIRS}")
 
+
 if(ENABLE_STREAMING)
         message("############################## start srtp ##############################")
         add_subdirectory(lib/libsrtp)
@@ -98,7 +143,7 @@ message("############################## start webrtc ###########################
 set(BUILD_DEPENDENCIES OFF CACHE BOOL "Whether or not to build depending libraries from source")
 set(BUILD_STATIC_LIBS ON CACHE BOOL "Build all libraries statically. (This includes third-party libraries.)")
 set(BUILD_SAMPLE OFF CACHE BOOL "Build available samples")
-set(OPEN_SRC_INCLUDE_DIRS ${OPEN_SRC_INCLUDE_DIRS} ${KVS_LIBWEBSOCKETS_INCLUDE_DIRS} ${KVS_LIBSRTP_INCLUDE_DIRS} ${KVS_USRSCTP_INCLUDE_DIRS})
+set(OPEN_SRC_INCLUDE_DIRS "${OPEN_SRC_INCLUDE_DIRS}" "${KVS_LIBWSLAY_INCLUDE_DIRS}" "${KVS_LIBLLHTTP_INCLUDE_DIRS}" "${KVS_LIBSRTP_INCLUDE_DIRS}" "${AZURE_C_SHARED_UTILITY_INC}")
 
 add_subdirectory(lib/amazon-kinesis-video-streams-webrtc-sdk-c)
 

@@ -10,3 +10,6 @@
 [submodule "main/lib/private-wslay"]
 	path = main/lib/private-wslay
 	url = git@github.com:ycyang1229/private-wslay.git
+[submodule "main/lib/azure-c-shared-utility"]
+	path = main/lib/azure-c-shared-utility
+	url = https://github.com/Azure/azure-c-shared-utility.git

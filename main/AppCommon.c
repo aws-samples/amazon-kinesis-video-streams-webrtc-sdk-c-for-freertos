@@ -770,14 +770,14 @@ STATUS initApp(BOOL trickleIce, BOOL useTurn, PAppConfiguration* ppAppConfigurat
     pAppSignaling->channelInfo.channelRoleType = SIGNALING_CHANNEL_ROLE_TYPE_MASTER;
     pAppSignaling->channelInfo.cachingPolicy = SIGNALING_API_CALL_CACHE_TYPE_NONE;
     pAppSignaling->channelInfo.cachingPeriod = SIGNALING_API_CALL_CACHE_TTL_SENTINEL_VALUE;
-    pAppSignaling->channelInfo.asyncIceServerConfig = FALSE;
+    //pAppSignaling->channelInfo.asyncIceServerConfig = FALSE;
     pAppSignaling->channelInfo.retry = TRUE;
     pAppSignaling->channelInfo.reconnect = TRUE;
     pAppSignaling->channelInfo.pCertPath = pAppConfiguration->appCredential.pCaCertPath;
     pAppSignaling->channelInfo.messageTtl = 0; // Default is 60 seconds
 
     pAppSignaling->clientInfo.version = SIGNALING_CLIENT_INFO_CURRENT_VERSION;
-    pAppSignaling->clientInfo.loggingLevel = getLogLevel();
+    //pAppSignaling->clientInfo.loggingLevel = getLogLevel();
     //pAppSignaling->clientInfo.cacheFilePath = NULL; // Use the default path
     STRCPY(pAppSignaling->clientInfo.clientId, APP_MASTER_CLIENT_ID);
     
