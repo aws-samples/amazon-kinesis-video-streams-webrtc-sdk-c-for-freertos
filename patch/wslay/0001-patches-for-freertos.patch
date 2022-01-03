@@ -1,0 +1,140 @@
+From f563497a9e38ea9f5e95ffb17311d8df230c6eff Mon Sep 17 00:00:00 2001
+From: ycyang1229 <yc.yang1229@gmail.com>
+Date: Mon, 3 Jan 2022 10:29:02 +0800
+Subject: [PATCH] patches for freertos.
+
+---
+ CMakeLists.txt          |  4 ++--
+ cmake/FindMbedTLS.cmake | 38 ++++++++++++++++++++++++++++++++++++++
+ examples/CMakeLists.txt |  7 +++++--
+ lib/CMakeLists.txt      |  4 ++--
+ lib/wslay_net.h         |  8 ++++++++
+ 5 files changed, 55 insertions(+), 6 deletions(-)
+ create mode 100644 cmake/FindMbedTLS.cmake
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7a41914..9d5320b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -14,7 +14,7 @@ project(wslay)
+ 
+ option(WSLAY_CONFIGURE_INSTALL "Generate install target" ON)
+ option(WSLAY_STATIC "Build static version of the library" ON)
+-option(WSLAY_SHARED "Build shared version of the library" OFF)
++option(WSLAY_SHARED "Build shared version of the library" ON)
+ option(WSLAY_EXAMPLES "Build examples" OFF)
+ option(WSLAY_TESTS "Build tests" OFF)
+ 
+@@ -30,7 +30,7 @@ endif()
+ if (WSLAY_CONFIGURE_INSTALL)
+ 	include(GNUInstallDirs)
+ 	set(INSTALL_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/wslay)
+-	install(EXPORT wslay
++	install(TARGETS wslay
+ 		DESTINATION ${INSTALL_CMAKE_DIR})
+ 	configure_file(wslay-config.cmake.in wslay-config.cmake @ONLY)
+ 	install(FILES ${CMAKE_CURRENT_BINARY_DIR}/wslay-config.cmake
+diff --git a/cmake/FindMbedTLS.cmake b/cmake/FindMbedTLS.cmake
+new file mode 100644
+index 0000000..b3ed046
+--- /dev/null
++++ b/cmake/FindMbedTLS.cmake
+@@ -0,0 +1,38 @@
++find_path(MBEDTLS_INCLUDE_DIRS mbedtls/ssl.h)
++
++find_library(MBEDTLS_LIBRARY mbedtls)
++find_library(MBEDX509_LIBRARY mbedx509)
++find_library(MBEDCRYPTO_LIBRARY mbedcrypto)
++
++set(MBEDTLS_LIBRARIES "${MBEDTLS_LIBRARY}" "${MBEDX509_LIBRARY}" "${MBEDCRYPTO_LIBRARY}")
++
++include(FindPackageHandleStandardArgs)
++find_package_handle_standard_args(MbedTLS DEFAULT_MSG
++    MBEDTLS_LIBRARY MBEDTLS_INCLUDE_DIRS MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
++
++mark_as_advanced(MBEDTLS_INCLUDE_DIRS MBEDTLS_LIBRARY MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
++
++if(NOT TARGET MbedTLS)
++	message("in mbedtls ${MBEDTLS_LIBRARY}")
++    add_library(MbedTLS UNKNOWN IMPORTED)
++    set_target_properties(MbedTLS PROPERTIES
++                          INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIRS}"
++                          IMPORTED_LINK_INTERFACE_LANGUAGES "C"
++                          IMPORTED_LOCATION "${MBEDTLS_LIBRARY}")
++endif()
++
++if(NOT TARGET MbedCrypto)
++    add_library(MbedCrypto UNKNOWN IMPORTED)
++    set_target_properties(MbedCrypto PROPERTIES
++                          INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIRS}"
++                          IMPORTED_LINK_INTERFACE_LANGUAGES "C"
++                          IMPORTED_LOCATION "${MBEDCRYPTO_LIBRARY}")
++endif()
++
++if(NOT TARGET MbedX509)
++    add_library(MbedX509 UNKNOWN IMPORTED)
++    set_target_properties(MbedX509 PROPERTIES
++                          INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIRS}"
++                          IMPORTED_LINK_INTERFACE_LANGUAGES "C"
++                          IMPORTED_LOCATION "${MBEDX509_LIBRARY}")
++endif()
+diff --git a/examples/CMakeLists.txt b/examples/CMakeLists.txt
+index 5d6aabf..3b89672 100644
+--- a/examples/CMakeLists.txt
++++ b/examples/CMakeLists.txt
+@@ -7,6 +7,9 @@ if(NOT HAVE_EPOLL)
+ endif()
+ find_package(Nettle REQUIRED)
+ 
++find_package(MbedTLS REQUIRED)
++
++
+ if(WSLAY_STATIC)
+ 	set(WSLAY_TARGET "wslay")
+ else()
+@@ -22,5 +25,5 @@ target_include_directories(fork-echoserv PRIVATE ${NETTLE_INCLUDE_DIRS})
+ target_link_libraries(fork-echoserv ${WSLAY_TARGET} ${NETTLE_LIBRARIES})
+ 
+ add_executable(testclient testclient.cc)
+-target_include_directories(testclient PRIVATE ${NETTLE_INCLUDE_DIRS})
+-target_link_libraries(testclient ${WSLAY_TARGET} ${NETTLE_LIBRARIES})
++target_include_directories(testclient PRIVATE ${NETTLE_INCLUDE_DIRS} ${MBEDTLS_INCLUDE_DIRS})
++target_link_libraries(testclient ${WSLAY_TARGET} ${NETTLE_LIBRARIES} ${MBEDTLS_LIBRARIES})
+diff --git a/lib/CMakeLists.txt b/lib/CMakeLists.txt
+index 25e637d..ba24310 100644
+--- a/lib/CMakeLists.txt
++++ b/lib/CMakeLists.txt
+@@ -6,9 +6,9 @@ cmake_minimum_required(VERSION 2.8)
+ 
+ set(PACKAGE_VERSION "1.0.1-DEV")
+ set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/includes)
+-set(GEN_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/includes)
++set(GEN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/includes)
+ 
+-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -pedantic-errors -Wno-long-long")
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -Wno-long-long")
+ 
+ include(CheckIncludeFile)
+ include(TestBigEndian)
+diff --git a/lib/wslay_net.h b/lib/wslay_net.h
+index 2310870..43aa065 100644
+--- a/lib/wslay_net.h
++++ b/lib/wslay_net.h
+@@ -34,6 +34,14 @@
+ #ifdef HAVE_ARPA_INET_H
+ #  include <arpa/inet.h>
+ #endif /* HAVE_ARPA_INET_H */
++
++#include <lwip/def.h>
++#define htons(x) lwip_htons(x)
++#define ntohs(x) lwip_ntohs(x)
++#define htonl(x) lwip_htonl(x)
++#define ntohl(x) lwip_ntohl(x)
++
++
+ #ifdef HAVE_NETINET_IN_H
+ #  include <netinet/in.h>
+ #endif /* HAVE_NETINET_IN_H */
+-- 
+2.17.1
+
