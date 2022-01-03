@@ -54,7 +54,11 @@ This has been described in the “Reference platform” section above.
 
 ### [usrsctp](https://github.com/sctplab/usrsctp/commit/939d48f9632d69bf170c7a84514b312b6b42257d)
 
-The usrsctp library is needed by the data channel feature of WebRTC only.  The library is not included in this project at this point of time. Please check back later for availability.
+Please apply patches as below.
+
+```
+main/lib/usrsctp$ git am ../../../patch/usrsctp/*
+```
 
 If you run into problems when "git am" patches, you can use the following commands to resolve the problem. Or try "git am --abort" the process of git am, then "git apply" individual patches sequentially (in the order of the sequence number indicated by the file name).
 

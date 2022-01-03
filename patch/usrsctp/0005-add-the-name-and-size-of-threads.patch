@@ -1,0 +1,369 @@
+From b802f24e7262c23eb2f55a908747c56c6484dc65 Mon Sep 17 00:00:00 2001
+From: ycyang1229 <yc.yang1229@gmail.com>
+Date: Wed, 5 May 2021 11:17:39 +0800
+Subject: [PATCH 5/5] add the name and size of threads.
+
+---
+ usrsctplib/CMakeLists.txt              |  1 +
+ usrsctplib/netinet/sctp_bsd_addr.c     |  5 ++-
+ usrsctplib/netinet/sctp_callout.c      |  5 ++-
+ usrsctplib/netinet/sctp_os_userspace.h |  2 +-
+ usrsctplib/netinet/sctp_userspace.c    | 61 ++++++++++++++++++++++++-
+ usrsctplib/user_config.h               | 62 ++++++++++++++++++++++++++
+ usrsctplib/user_recv_thread.c          | 21 ++++-----
+ 7 files changed, 140 insertions(+), 17 deletions(-)
+ create mode 100755 usrsctplib/user_config.h
+
+diff --git a/usrsctplib/CMakeLists.txt b/usrsctplib/CMakeLists.txt
+index 3c62813..7f45b47 100644
+--- a/usrsctplib/CMakeLists.txt
++++ b/usrsctplib/CMakeLists.txt
+@@ -99,6 +99,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+ 
+ list(APPEND usrsctp_root_headers
+ 	user_atomic.h
++	user_config.h
+ 	user_environment.h
+ 	user_inpcb.h
+ 	user_ip_icmp.h
+diff --git a/usrsctplib/netinet/sctp_bsd_addr.c b/usrsctplib/netinet/sctp_bsd_addr.c
+index 76d40b8..71f82ca 100755
+--- a/usrsctplib/netinet/sctp_bsd_addr.c
++++ b/usrsctplib/netinet/sctp_bsd_addr.c
+@@ -50,6 +50,7 @@ __FBSDID("$FreeBSD: head/sys/netinet/sctp_bsd_addr.c 358080 2020-02-18 19:41:55Z
+ #include <netinet/sctp_asconf.h>
+ #include <netinet/sctp_sysctl.h>
+ #include <netinet/sctp_indata.h>
++#include <user_config.h>
+ #if defined(__FreeBSD__) && !defined(__Userspace__)
+ #include <sys/unistd.h>
+ #endif
+@@ -128,7 +129,7 @@ static void
+ sctp_iterator_thread(void *v SCTP_UNUSED)
+ {
+ #if defined(__Userspace__)
+-	sctp_userspace_set_threadname("SCTP iterator");
++	sctp_userspace_set_threadname(SCTP_THREAD_ITERATOR_NAME);
+ #endif
+ 	SCTP_IPI_ITERATOR_WQ_LOCK();
+ 	/* In FreeBSD this thread never terminates. */
+@@ -189,7 +190,7 @@ sctp_startup_iterator(void)
+ 	SCTP_IPI_ITERATOR_WQ_INIT();
+ 	TAILQ_INIT(&sctp_it_ctl.iteratorhead);
+ #if defined(__Userspace__)
+-	if (sctp_userspace_thread_create(&sctp_it_ctl.thread_proc, &sctp_iterator_thread)) {
++	if (sctp_userspace_thread_create(&sctp_it_ctl.thread_proc, &sctp_iterator_thread, SCTP_THREAD_ITERATOR_NAME, SCTP_THREAD_ITERATOR_SIZE)) {
+ 		SCTP_PRINTF("ERROR: Creating sctp_iterator_thread failed.\n");
+ 	} else {
+ 		SCTP_BASE_VAR(iterator_thread_started) = 1;
+diff --git a/usrsctplib/netinet/sctp_callout.c b/usrsctplib/netinet/sctp_callout.c
+index d66da73..0e780a8 100755
+--- a/usrsctplib/netinet/sctp_callout.c
++++ b/usrsctplib/netinet/sctp_callout.c
+@@ -58,6 +58,7 @@
+ #include <netinet/sctp_callout.h>
+ #include <netinet/sctp_pcb.h>
+ #endif
++#include <user_config.h>
+ #include <netinet/sctputil.h>
+ 
+ /*
+@@ -199,7 +200,7 @@ sctp_timeout(void *arg SCTP_UNUSED)
+ void *
+ user_sctp_timer_iterate(void *arg)
+ {
+-	sctp_userspace_set_threadname("SCTP timer");
++	sctp_userspace_set_threadname(SCTP_THREAD_TIMER_NAME);
+ 	for (;;) {
+ #if defined(_WIN32)
+ 		Sleep(TIMEOUT_INTERVAL);
+@@ -231,7 +232,7 @@ sctp_start_timer_thread(void)
+ 	 */
+ 	int rc;
+ 
+-	rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(timer_thread), user_sctp_timer_iterate);
++	rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(timer_thread), user_sctp_timer_iterate, SCTP_THREAD_TIMER_NAME, SCTP_THREAD_TIMER_SIZE);
+ 	if (rc) {
+ 		SCTP_PRINTF("ERROR; return code from sctp_thread_create() is %d\n", rc);
+ 	} else {
+diff --git a/usrsctplib/netinet/sctp_os_userspace.h b/usrsctplib/netinet/sctp_os_userspace.h
+index 87ced8b..b2a09e1 100755
+--- a/usrsctplib/netinet/sctp_os_userspace.h
++++ b/usrsctplib/netinet/sctp_os_userspace.h
+@@ -1029,7 +1029,7 @@ struct sockaddr_conn {
+ typedef void *(*start_routine_t)(void *);
+ 
+ extern int
+-sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_routine);
++sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_routine, const char* thread_name, uint32_t thread_size);
+ 
+ void
+ sctp_userspace_set_threadname(const char *name);
+diff --git a/usrsctplib/netinet/sctp_userspace.c b/usrsctplib/netinet/sctp_userspace.c
+index 8dd386f..2b4a533 100755
+--- a/usrsctplib/netinet/sctp_userspace.c
++++ b/usrsctplib/netinet/sctp_userspace.c
+@@ -35,6 +35,12 @@
+ #pragma comment(lib, "IPHLPAPI.lib")
+ #endif
+ #endif
++#include <user_config.h>
++
++#if defined(SCTP_USE_RTOS)
++#include <netinet/sctp_pcb.h>
++#include "esp_pthread.h"
++#endif
+ #include <netinet/sctp_os_userspace.h>
+ #if defined(__FreeBSD__)
+ #include <pthread_np.h>
+@@ -44,6 +50,8 @@
+ #include <sys/prctl.h>
+ #endif
+ 
++
++
+ #if defined(_WIN32)
+ /* Adapter to translate Unix thread start routines to Windows thread start
+  * routines.
+@@ -59,7 +67,7 @@ sctp_create_thread_adapter(void *arg) {
+ }
+ 
+ int
+-sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_routine)
++sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_routine, const char* thread_name, uint32_t thread_size)
+ {
+ 	*thread = CreateThread(NULL, 0, sctp_create_thread_adapter,
+ 			       (void *)start_routine, 0, NULL);
+@@ -72,9 +80,58 @@ sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_ro
+ #pragma GCC diagnostic pop
+ #endif
+ 
++#elif defined(SCTP_USE_RTOS)
++#include "esp_pthread.h"
++
++int
++sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_routine, const char* thread_name, uint32_t thread_size)
++{
++    esp_pthread_cfg_t pthread_cfg;
++    esp_err_t esp_err = esp_pthread_get_cfg(&pthread_cfg);
++    pthread_attr_t *pAttr = NULL;
++    pthread_attr_t attr;
++    pAttr = &attr;
++	int result = 0;
++
++    result = pthread_attr_init(pAttr);
++	extern struct sctp_base_info system_base_info;
++    if(esp_err != ESP_OK){
++        SCTPDBG(SCTP_DEBUG_USR, "get the esp pthread cfg failed.\n");
++		//SCTP_PRINTF("get the esp pthread cfg failed.\n");
++		return esp_err;
++    }
++
++    if(thread_size == 0){
++        pthread_cfg.stack_size = SCTP_THREAD_DEFAULT_SIZE;
++    }else{
++        pthread_cfg.stack_size = thread_size;
++    }
++
++    if(thread_name == NULL){
++        pthread_cfg.thread_name = SCTP_THREAD_DEFAULT_NAME;
++    }else{
++        pthread_cfg.thread_name = thread_name;
++    }
++
++    esp_err = esp_pthread_set_cfg(&pthread_cfg);
++
++    if(esp_err != ESP_OK){
++		SCTPDBG(SCTP_DEBUG_USR, "set the esp pthread cfg failed.\n");
++		//SCTP_PRINTF("set the esp pthread cfg failed.\n");
++		return esp_err;
++    }
++
++    if(thread_size == 0){
++        pthread_attr_setstacksize(pAttr, SCTP_THREAD_DEFAULT_SIZE);
++    }else{
++        pthread_attr_setstacksize(pAttr, thread_size);
++    }
++
++	return pthread_create(thread, pAttr, start_routine, NULL);
++}
+ #else
+ int
+-sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_routine)
++sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_routine, const char* thread_name, uint32_t thread_size)
+ {
+ 	return pthread_create(thread, NULL, start_routine, NULL);
+ }
+diff --git a/usrsctplib/user_config.h b/usrsctplib/user_config.h
+new file mode 100755
+index 0000000..10432a1
+--- /dev/null
++++ b/usrsctplib/user_config.h
+@@ -0,0 +1,62 @@
++/*-
++ * SPDX-License-Identifier: BSD-3-Clause
++ *
++ * Copyright (c) 2001-2007, by Cisco Systems, Inc. All rights reserved.
++ * Copyright (c) 2008-2012, by Randall Stewart. All rights reserved.
++ * Copyright (c) 2008-2012, by Michael Tuexen. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * a) Redistributions of source code must retain the above copyright notice,
++ *    this list of conditions and the following disclaimer.
++ *
++ * b) Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the distribution.
++ *
++ * c) Neither the name of Cisco Systems, Inc. nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#if defined(__FreeBSD__) && !defined(__Userspace__)
++#include <sys/cdefs.h>
++__FBSDID("$FreeBSD: head/sys/netinet/sctp_timer.h 359195 2020-03-21 16:12:19Z tuexen $");
++#endif
++
++#ifndef _NETINET_USER_CONFIG_H_
++#define _NETINET_USER_CONFIG_H_
++
++#define SCTP_THREAD_DEFAULT_NAME "pthread"
++#define SCTP_THREAD_DEFAULT_SIZE 4096
++#define SCTP_THREAD_ADDR_MON_NAME "SCTP addr mon"
++#define SCTP_THREAD_ADDR_MON_SIZE SCTP_THREAD_DEFAULT_SIZE
++#define SCTP_THREAD_IPV4_RCV_NAME "SCTP/IP4"
++#define SCTP_THREAD_IPV4_RCV_SIZE SCTP_THREAD_DEFAULT_SIZE
++#define SCTP_THREAD_UDP_IPV4_RCV_NAME "SCTP/UDP/IP4"
++#define SCTP_THREAD_UDP_IPV4_RCV_SIZE SCTP_THREAD_DEFAULT_SIZE
++#define SCTP_THREAD_IPV6_RCV_NAME "SCTP/IP6"
++#define SCTP_THREAD_IPV6_RCV_SIZE SCTP_THREAD_DEFAULT_SIZE
++#define SCTP_THREAD_IPV6_RCV_NAME "SCTP/IP6"
++#define SCTP_THREAD_IPV6_RCV_SIZE SCTP_THREAD_DEFAULT_SIZE
++#define SCTP_THREAD_UDP_IPV6_RCV_NAME "SCTP/UDP/IP6"
++#define SCTP_THREAD_UDP_IPV6_SIZE SCTP_THREAD_DEFAULT_SIZE
++#define SCTP_THREAD_ITERATOR_NAME "SCTP iterator"
++#define SCTP_THREAD_ITERATOR_SIZE SCTP_THREAD_DEFAULT_SIZE
++#define SCTP_THREAD_TIMER_NAME "SCTP timer"
++#define SCTP_THREAD_TIMER_SIZE 8192//SCTP_THREAD_DEFAULT_SIZE
++
++#endif//!< _NETINET_USER_CONFIG_H_
+diff --git a/usrsctplib/user_recv_thread.c b/usrsctplib/user_recv_thread.c
+index 5848e94..cc912cb 100755
+--- a/usrsctplib/user_recv_thread.c
++++ b/usrsctplib/user_recv_thread.c
+@@ -41,6 +41,7 @@
+ #include <user_ip6_var.h>
+ #endif
+ #endif
++#include <user_config.h>
+ #include <netinet/sctp_os.h>
+ #include <netinet/sctp_var.h>
+ #include <netinet/sctp_pcb.h>
+@@ -144,7 +145,7 @@ recv_function_route(void *arg)
+ 	char rt_buffer[1024];
+ 	struct sockaddr *sa, *rti_info[RTAX_MAX];
+ 
+-	sctp_userspace_set_threadname("SCTP addr mon");
++	sctp_userspace_set_threadname(SCTP_THREAD_ADDR_MON_NAME);
+ 
+ 	while (1) {
+ 		memset(rt_buffer, 0, sizeof(rt_buffer));
+@@ -295,7 +296,7 @@ recv_function_raw(void *arg)
+ 	int want_ext = (iovlen > MLEN)? 1 : 0;
+ 	int want_header = 0;
+ 
+-	sctp_userspace_set_threadname("SCTP/IP4 rcv");
++	sctp_userspace_set_threadname(SCTP_THREAD_IPV4_RCV_NAME);
+ 
+ 	memset(&src, 0, sizeof(struct sockaddr_in));
+ 	memset(&dst, 0, sizeof(struct sockaddr_in));
+@@ -476,7 +477,7 @@ recv_function_raw6(void *arg)
+ 	int want_ext = (iovlen > MLEN)? 1 : 0;
+ 	int want_header = 0;
+ 
+-	sctp_userspace_set_threadname("SCTP/IP6 rcv");
++	sctp_userspace_set_threadname(SCTP_THREAD_IPV6_RCV_NAME);
+ 
+ 	recvmbuf6 = malloc(sizeof(struct mbuf *) * MAXLEN_MBUF_CHAIN);
+ 
+@@ -665,7 +666,7 @@ recv_function_udp(void *arg)
+ 	DWORD ncounter;
+ #endif
+ 
+-	sctp_userspace_set_threadname("SCTP/UDP/IP4 rcv");
++	sctp_userspace_set_threadname(SCTP_THREAD_UDP_IPV4_RCV_NAME);
+ 
+ 	udprecvmbuf = malloc(sizeof(struct mbuf *) * MAXLEN_MBUF_CHAIN);
+ 
+@@ -867,7 +868,7 @@ recv_function_udp6(void *arg)
+ 	DWORD ncounter;
+ #endif
+ 
+-	sctp_userspace_set_threadname("SCTP/UDP/IP6 rcv");
++	sctp_userspace_set_threadname(SCTP_THREAD_UDP_IPV6_RCV_NAME);
+ 
+ 	udprecvmbuf6 = malloc(sizeof(struct mbuf *) * MAXLEN_MBUF_CHAIN);
+ 	while (1) {
+@@ -1391,7 +1392,7 @@ recv_thread_init(void)
+ 	if (SCTP_BASE_VAR(userspace_route) != -1) {
+ 		int rc;
+ 
+-		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadroute), &recv_function_route))) {
++		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadroute), &recv_function_route, SCTP_THREAD_ADDR_MON_NAME, SCTP_THREAD_ADDR_MON_SIZE))) {
+ 			SCTPDBG(SCTP_DEBUG_USR, "Can't start routing thread (%d).\n", rc);
+ 			close(SCTP_BASE_VAR(userspace_route));
+ 			SCTP_BASE_VAR(userspace_route) = -1;
+@@ -1403,7 +1404,7 @@ recv_thread_init(void)
+ 	if (SCTP_BASE_VAR(userspace_rawsctp) != -1) {
+ 		int rc;
+ 
+-		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadraw), &recv_function_raw))) {
++		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadraw), &recv_function_raw, SCTP_THREAD_IPV4_RCV_NAME, SCTP_THREAD_IPV4_RCV_SIZE))) {
+ 			SCTPDBG(SCTP_DEBUG_USR, "Can't start SCTP/IPv4 recv thread (%d).\n", rc);
+ #if defined(_WIN32)
+ 			closesocket(SCTP_BASE_VAR(userspace_rawsctp));
+@@ -1416,7 +1417,7 @@ recv_thread_init(void)
+ 	if (SCTP_BASE_VAR(userspace_udpsctp) != -1) {
+ 		int rc;
+ 
+-		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadudp), &recv_function_udp))) {
++		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadudp), &recv_function_udp, SCTP_THREAD_UDP_IPV4_RCV_NAME, SCTP_THREAD_UDP_IPV4_RCV_SIZE))) {
+ 			SCTPDBG(SCTP_DEBUG_USR, "Can't start SCTP/UDP/IPv4 recv thread (%d).\n", rc);
+ #if defined(_WIN32)
+ 			closesocket(SCTP_BASE_VAR(userspace_udpsctp));
+@@ -1431,7 +1432,7 @@ recv_thread_init(void)
+ 	if (SCTP_BASE_VAR(userspace_rawsctp6) != -1) {
+ 		int rc;
+ 
+-		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadraw6), &recv_function_raw6))) {
++		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadraw6), &recv_function_raw6, SCTP_THREAD_IPV6_RCV_NAME, SCTP_THREAD_IPV6_RCV_SIZE))) {
+ 			SCTPDBG(SCTP_DEBUG_USR, "Can't start SCTP/IPv6 recv thread (%d).\n", rc);
+ #if defined(_WIN32)
+ 			closesocket(SCTP_BASE_VAR(userspace_rawsctp6));
+@@ -1444,7 +1445,7 @@ recv_thread_init(void)
+ 	if (SCTP_BASE_VAR(userspace_udpsctp6) != -1) {
+ 		int rc;
+ 
+-		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadudp6), &recv_function_udp6))) {
++		if ((rc = sctp_userspace_thread_create(&SCTP_BASE_VAR(recvthreadudp6), &recv_function_udp6, SCTP_THREAD_UDP_IPV6_RCV_NAME, SCTP_THREAD_UDP_IPV6_SIZE))) {
+ 			SCTPDBG(SCTP_DEBUG_USR, "Can't start SCTP/UDP/IPv6 recv thread (%d).\n", rc);
+ #if defined(_WIN32)
+ 			closesocket(SCTP_BASE_VAR(userspace_udpsctp6));
+-- 
+2.17.1
+
