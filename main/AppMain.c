@@ -14,6 +14,7 @@
  */
 #define LOG_CLASS "AppMain"
 #include "AppCommon.h"
+#include "instrumented_allocators.h"
 
 INT32 WebRTCAppMain(INT32 argc, CHAR* argv[])
 {

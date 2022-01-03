@@ -14,7 +14,7 @@
  */
 #define LOG_CLASS "AppFileSrc"
 #include "AppFileSrc.h"
-
+#include "fileio.h"
 #define NUMBER_OF_H264_FRAME_FILES               1500
 #define NUMBER_OF_OPUS_FRAME_FILES               618
 #define DEFAULT_FPS_VALUE                        25

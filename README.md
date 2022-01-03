@@ -32,12 +32,12 @@ esp-idf/components/mbedtls/mbedtls$ git am your_demo_path/patch/mbedtls/*
 
 Next, patch depended libraries for using with WebRTC.
 
-### [libwebsockets](https://github.com/warmcat/libwebsockets/releases/tag/v4.1.0-rc1)
+### [wslay](https://github.com/tatsuhiro-t/wslay)
 
-This project uses v4.1.0-rc1 of libwebsockets. Please apply patches located in patch/libwebsockets directory.
+This project uses wslay as the websocket client. Please apply patches located in patch/wslay directory.
 
 ```
-main/lib/libwebsockets$ git am ../../../patch/libwebsockets/*
+main/lib/wslay$ git am ../../../patch/wslay/*
 ```
 
 ### [libsrtp](https://github.com/cisco/libsrtp/releases/tag/v2.3.0)
@@ -107,8 +107,6 @@ sh
 gst-launch-1.0 videotestsrc pattern=ball num-buffers=1500 ! timeoverlay ! videoconvert ! video/x-raw,format=I420,width=1280,height=720,framerate=5/1 ! queue ! x264enc bframes=0 speed-preset=veryfast bitrate=128 byte-stream=TRUE tune=zerolatency ! video/x-h264,stream-format=byte-stream,alignment=au,profile=baseline ! multifilesink location="frame-%04d.h264" index=1
 ```
 
-
-
 ### Build and Flash
 
 Build the project and flash it to the board, then run monitor tool to view serial output:
@@ -120,21 +118,6 @@ idf.py -p PORT flash monitor
 (To exit the serial monitor, type `Ctrl-]`.)
 
 See the Getting Started Guide of ESP IDF for full steps to configure and use ESP-IDF to build projects.
-
-### RTOS-specific changes
-
-The original WebRTC C SDK written for Linux used stack memory in many places.  When porting the SDK to RTOS, we have changed some of those to use the heap.  In this project, the maximum stack consumption is 20KB.  We’ve set several specific parameters in WebRTC in order to reduce runtime memory consumption. 
-
-```
-MAX_SESSION_DESCRIPTION_INIT_SDP_LEN
-MAX_MEDIA_STREAM_ID_LEN
-ICE_HASH_TABLE_BUCKET_COUNT
-MAX_UPDATE_VERSION_LEN
-MAX_ARN_LEN
-MAX_URI_CHAR_LEN
-MAX_PATH_LEN
-DEFAULT_TIMER_QUEUE_TIMER_COUNT
-```
 
 ### Known limitations and issues
 

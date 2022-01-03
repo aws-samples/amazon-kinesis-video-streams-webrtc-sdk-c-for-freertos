@@ -12,9 +12,19 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
+/******************************************************************************
+ * HEADERS
+ ******************************************************************************/
 #define LOG_CLASS "AppCredential"
 #include "AppCredential.h"
+#include "stack_queue.h"
+#include "directory.h"
+#include "iot_credential_provider.h"
+#include "static_credential_provider.h"
 
+/******************************************************************************
+ * FUNCTIONS
+ ******************************************************************************/
 static STATUS traverseDirectoryPEMFileScan(UINT64 userData, DIR_ENTRY_TYPES entryType, PCHAR fullPath, PCHAR fileName)
 {
     UNUSED_PARAM(entryType);
@@ -168,7 +178,7 @@ STATUS createCredential(PAppCredential pAppCredential)
     } else if (((pIotCoreThingName = GETENV(APP_IOT_CORE_THING_NAME)) != NULL) &&
                ((pIotCoreCredentialEndPoint = GETENV(APP_IOT_CORE_CREDENTIAL_ENDPOINT)) != NULL) && ((pIotCoreCert = GETENV(APP_IOT_CORE_CERT))) &&
                ((pIotCorePrivateKey = GETENV(APP_IOT_CORE_PRIVATE_KEY)) != NULL) && ((pIotCoreRoleAlias = GETENV(APP_IOT_CORE_ROLE_ALIAS)) != NULL)) {
-        CHK(createLwsIotCredentialProvider(pIotCoreCredentialEndPoint, pIotCoreCert, pIotCorePrivateKey, pAppCredential->pCaCertPath,
+        CHK(createIotCredentialProvider(pIotCoreCredentialEndPoint, pIotCoreCert, pIotCorePrivateKey, pAppCredential->pCaCertPath,
                                            pIotCoreRoleAlias, pIotCoreThingName, &pAppCredential->pCredentialProvider) == STATUS_SUCCESS,
             STATUS_APP_CREDENTIAL_ALLOCATE_IOT);
         pAppCredential->credentialType = APP_CREDENTIAL_TYPE_IOT_CERT;

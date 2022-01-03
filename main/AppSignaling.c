@@ -14,6 +14,7 @@
  */
 #define LOG_CLASS "AppSignaling"
 #include "AppSignaling.h"
+#include "kvs/common_defs.h"
 
 STATUS initAppSignaling(PAppSignaling pAppSignaling, SignalingClientMessageReceivedFunc onMessageReceived,
                         SignalingClientStateChangedFunc onStateChanged, SignalingClientErrorReportFunc pOnError, UINT64 udata, BOOL useTurn)
