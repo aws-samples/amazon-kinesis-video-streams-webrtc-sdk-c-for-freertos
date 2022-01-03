@@ -7,3 +7,6 @@
 [submodule "main/lib/wslay"]
 	path = main/lib/wslay
 	url = https://github.com/tatsuhiro-t/wslay.git
+[submodule "main/lib/usrsctp"]
+	path = main/lib/usrsctp
+	url = https://github.com/sctplab/usrsctp.git
