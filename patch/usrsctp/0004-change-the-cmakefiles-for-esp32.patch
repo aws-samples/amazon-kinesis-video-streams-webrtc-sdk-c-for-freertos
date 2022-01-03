@@ -1,0 +1,50 @@
+From ec3158ccde2d0a18db72d0bdb8c3e7517bc2c369 Mon Sep 17 00:00:00 2001
+From: ycyang1229 <yc.yang1229@gmail.com>
+Date: Tue, 4 May 2021 11:38:40 +0800
+Subject: [PATCH 4/5] change the cmakefiles for esp32.
+
+---
+ CMakeLists.txt            | 6 ++++++
+ usrsctplib/CMakeLists.txt | 4 +++-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 31afb47..f04b944 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -82,11 +82,17 @@ option(sctp_sanitizer_memory "Compile with memory sanitizer" 0)
+ option(sctp_build_fuzzer "Compile in clang fuzzing mode" 0)
+ 
+ option(sctp_use_lwip "build with lwip" ON)
++option(sctp_use_rtos "build with rtos" ON)
+ 
+ if(sctp_use_lwip)
+ 	add_definitions(-DSCTP_USE_LWIP)
+ endif()
+ 
++if(sctp_use_rtos)
++	add_definitions(-DSCTP_USE_RTOS)
++endif()
++
++
+ if (sctp_sanitizer_address AND sctp_sanitizer_memory)
+ 	message(FATAL_ERROR "Can not compile with both sanitizer options")
+ endif ()
+diff --git a/usrsctplib/CMakeLists.txt b/usrsctplib/CMakeLists.txt
+index bd6c521..3c62813 100644
+--- a/usrsctplib/CMakeLists.txt
++++ b/usrsctplib/CMakeLists.txt
+@@ -57,7 +57,9 @@ endif()
+ 
+ if(SCTP_USE_MBEDTLS_SHA1)
+ 	add_definitions(-DSCTP_USE_MBEDTLS_SHA1)
+-	find_package(MbedTLS REQUIRED)
++	if(NOT sctp_use_rtos)
++		find_package(MbedTLS REQUIRED)
++	endif()
+ endif()
+ 
+ 
+-- 
+2.17.1
+

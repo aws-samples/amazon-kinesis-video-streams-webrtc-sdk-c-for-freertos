@@ -1,0 +1,173 @@
+From ef150a1bf41b6942509735eae69183d06a4fcd30 Mon Sep 17 00:00:00 2001
+From: ycyang1229 <yc.yang1229@gmail.com>
+Date: Fri, 23 Apr 2021 16:50:39 +0800
+Subject: [PATCH 3/5] add-mbedtls-sha1-support.
+
+---
+ CMakeLists.txt                 |  2 ++
+ cmake/FindMbedTLS.cmake        | 38 ++++++++++++++++++++++++++++++++++
+ usrsctplib/CMakeLists.txt      | 16 ++++++++++++++
+ usrsctplib/netinet/sctp_sha1.c | 18 ++++++++++++++++
+ usrsctplib/netinet/sctp_sha1.h |  4 ++++
+ 5 files changed, 78 insertions(+)
+ create mode 100644 cmake/FindMbedTLS.cmake
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index bc0efe4..31afb47 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -38,6 +38,8 @@ if (NOT CMAKE_BUILD_TYPE)
+ 	set(CMAKE_BUILD_TYPE "DEBUG")
+ endif ()
+ 
++list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
++
+ include(CheckStructHasMember)
+ include(CheckIncludeFile)
+ include(CheckIncludeFiles)
+diff --git a/cmake/FindMbedTLS.cmake b/cmake/FindMbedTLS.cmake
+new file mode 100644
+index 0000000..b3ed046
+--- /dev/null
++++ b/cmake/FindMbedTLS.cmake
+@@ -0,0 +1,38 @@
++find_path(MBEDTLS_INCLUDE_DIRS mbedtls/ssl.h)
++
++find_library(MBEDTLS_LIBRARY mbedtls)
++find_library(MBEDX509_LIBRARY mbedx509)
++find_library(MBEDCRYPTO_LIBRARY mbedcrypto)
++
++set(MBEDTLS_LIBRARIES "${MBEDTLS_LIBRARY}" "${MBEDX509_LIBRARY}" "${MBEDCRYPTO_LIBRARY}")
++
++include(FindPackageHandleStandardArgs)
++find_package_handle_standard_args(MbedTLS DEFAULT_MSG
++    MBEDTLS_LIBRARY MBEDTLS_INCLUDE_DIRS MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
++
++mark_as_advanced(MBEDTLS_INCLUDE_DIRS MBEDTLS_LIBRARY MBEDX509_LIBRARY MBEDCRYPTO_LIBRARY)
++
++if(NOT TARGET MbedTLS)
++	message("in mbedtls ${MBEDTLS_LIBRARY}")
++    add_library(MbedTLS UNKNOWN IMPORTED)
++    set_target_properties(MbedTLS PROPERTIES
++                          INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIRS}"
++                          IMPORTED_LINK_INTERFACE_LANGUAGES "C"
++                          IMPORTED_LOCATION "${MBEDTLS_LIBRARY}")
++endif()
++
++if(NOT TARGET MbedCrypto)
++    add_library(MbedCrypto UNKNOWN IMPORTED)
++    set_target_properties(MbedCrypto PROPERTIES
++                          INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIRS}"
++                          IMPORTED_LINK_INTERFACE_LANGUAGES "C"
++                          IMPORTED_LOCATION "${MBEDCRYPTO_LIBRARY}")
++endif()
++
++if(NOT TARGET MbedX509)
++    add_library(MbedX509 UNKNOWN IMPORTED)
++    set_target_properties(MbedX509 PROPERTIES
++                          INTERFACE_INCLUDE_DIRECTORIES "${MBEDTLS_INCLUDE_DIRS}"
++                          IMPORTED_LINK_INTERFACE_LANGUAGES "C"
++                          IMPORTED_LOCATION "${MBEDX509_LIBRARY}")
++endif()
+diff --git a/usrsctplib/CMakeLists.txt b/usrsctplib/CMakeLists.txt
+index 6eb0f36..bd6c521 100644
+--- a/usrsctplib/CMakeLists.txt
++++ b/usrsctplib/CMakeLists.txt
+@@ -45,6 +45,9 @@ set(CMAKE_MACOSX_RPATH 		1)
+ 
+ include(CheckCCompilerFlag)
+ 
++
++option(SCTP_USE_MBEDTLS_SHA1 "Build with mbedtls sha1 support." ON)
++
+ add_definitions(-D__Userspace__)
+ add_definitions(-DSCTP_SIMPLE_ALLOCATOR)
+ add_definitions(-DSCTP_PROCESS_LEVEL_LOCKS)
+@@ -52,6 +55,11 @@ if(NOT sctp_use_lwip)
+ 	add_definitions(-D__native_client__)
+ endif()
+ 
++if(SCTP_USE_MBEDTLS_SHA1)
++	add_definitions(-DSCTP_USE_MBEDTLS_SHA1)
++	find_package(MbedTLS REQUIRED)
++endif()
++
+ 
+ #################################################
+ # OS DEPENDENT
+@@ -175,12 +183,20 @@ add_library(usrsctp-static STATIC ${usrsctp_sources} ${usrsctp_headers})
+ target_include_directories(usrsctp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+ target_include_directories(usrsctp-static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+ 
++if(SCTP_USE_MBEDTLS_SHA1)
++	target_include_directories(usrsctp PRIVATE ${MBEDTLS_INCLUDE_DIRS})
++endif()
++
+ if (WIN32)
+ 	message(STATUS "link library: ws2_32")
+ 	target_link_libraries(usrsctp ws2_32 iphlpapi.lib)
+ 	target_link_libraries(usrsctp-static ws2_32 iphlpapi.lib)
+ endif ()
+ 
++if(SCTP_USE_MBEDTLS_SHA1)
++	target_link_libraries(usrsctp PRIVATE ${MBEDTLS_LIBRARIES})
++endif()
++
+ set_target_properties(usrsctp-static PROPERTIES OUTPUT_NAME "usrsctp")
+ set_target_properties(usrsctp PROPERTIES IMPORT_SUFFIX "_import.lib")
+ set_target_properties(usrsctp PROPERTIES SOVERSION 1 VERSION 1.0.0)
+diff --git a/usrsctplib/netinet/sctp_sha1.c b/usrsctplib/netinet/sctp_sha1.c
+index db0e753..8472c3a 100755
+--- a/usrsctplib/netinet/sctp_sha1.c
++++ b/usrsctplib/netinet/sctp_sha1.c
+@@ -80,7 +80,25 @@ sctp_sha1_final(unsigned char *digest, struct sctp_sha1_context *ctx)
+ {
+ 	SHA1_Final(digest, &ctx->sha_ctx);
+ }
++#elif defined(SCTP_USE_MBEDTLS_SHA1)
++void
++sctp_sha1_init(struct sctp_sha1_context *ctx)
++{
++	mbedtls_sha1_init(&ctx->sha1_ctx);
++	mbedtls_sha1_starts_ret(&ctx->sha1_ctx);
++}
+ 
++void
++sctp_sha1_update(struct sctp_sha1_context *ctx, const unsigned char *ptr, unsigned int siz)
++{
++	mbedtls_sha1_update_ret(&ctx->sha1_ctx, ptr, siz);
++}
++
++void
++sctp_sha1_final(unsigned char *digest, struct sctp_sha1_context *ctx)
++{
++	mbedtls_sha1_finish_ret(&ctx->sha1_ctx, digest);
++}
+ #else
+ 
+ #include <string.h>
+diff --git a/usrsctplib/netinet/sctp_sha1.h b/usrsctplib/netinet/sctp_sha1.h
+index d535ee4..9ff4ff7 100755
+--- a/usrsctplib/netinet/sctp_sha1.h
++++ b/usrsctplib/netinet/sctp_sha1.h
+@@ -46,6 +46,8 @@ __FBSDID("$FreeBSD$");
+ #include <pk11pub.h>
+ #elif defined(SCTP_USE_OPENSSL_SHA1)
+ #include <openssl/sha.h>
++#elif defined(SCTP_USE_MBEDTLS_SHA1)
++#include <mbedtls/sha1.h>
+ #endif
+ 
+ struct sctp_sha1_context {
+@@ -53,6 +55,8 @@ struct sctp_sha1_context {
+ 	struct PK11Context *pk11_ctx;
+ #elif defined(SCTP_USE_OPENSSL_SHA1)
+ 	SHA_CTX sha_ctx;
++#elif defined(SCTP_USE_MBEDTLS_SHA1)
++	mbedtls_sha1_context sha1_ctx;
+ #else
+ 	unsigned int A;
+ 	unsigned int B;
+-- 
+2.17.1
+
