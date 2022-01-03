@@ -19,13 +19,16 @@
 extern "C" {
 #endif
 
-#include <com/amazonaws/kinesis/video/webrtcclient/Include.h>
+#include <kvs/WebRTCClient.h>
+#include "hash_table.h"
 #include "AppConfig.h"
 #include "AppError.h"
 #include "AppCredential.h"
 #include "AppFileSrc.h"
 #include "AppSignaling.h"
 #include "AppMessageQueue.h"
+#include "timer_queue.h"
+#include "hash_table.h"
 
 typedef struct __StreamingSession StreamingSession;
 typedef struct __StreamingSession* PStreamingSession;

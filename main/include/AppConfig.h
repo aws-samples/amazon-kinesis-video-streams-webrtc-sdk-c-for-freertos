@@ -19,7 +19,7 @@
 extern "C" {
 #endif
 
-#include <com/amazonaws/kinesis/video/webrtcclient/Include.h>
+#include <kvs/WebRTCClient.h>
 
 #define APP_MAX_CONCURRENT_STREAMING_SESSION 10
 #define APP_MASTER_CLIENT_ID                 "ProducerMaster"
