@@ -9,14 +9,17 @@ set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/includ
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/api_call"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/credential"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/crypto"
-                                "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Ice"
+                                "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/ice"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Json"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/net"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/PeerConnection"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Rtcp"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Rtp"
+                                "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Rtp/Codecs"
+                                "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/sctp"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Sdp"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/signaling"
+                                "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/srtp"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/state_machine"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/stun"
                                 "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/utils")
@@ -27,7 +30,7 @@ idf_component_register(SRCS "kvswebrtc_example_main.c"
                             "AppCommon.c"
                             "AppCredential.c"
                             "AppDataChannel.c"
-                            "AppFileSrc.c"
+                            "AppMediaSrc_ESP32_FileSrc.c"
                             "AppMain.c"
                             "AppMessageQueue.c"
                             "AppMetrics.c"
@@ -48,14 +51,14 @@ add_definitions(-DKVS_PLAT_ESP_FREERTOS)
 if (ENABLE_STREAMING)
         add_definitions(-DENABLE_STREAMING)
         set(ENABLE_STREAMING ON CACHE BOOL "Enable support for streaming")
-        set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIBKVSWEBRTC_INCLUDE_DIRS}" "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Srtp")
+        set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIBKVSWEBRTC_INCLUDE_DIRS}" "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/srtp")
 else()
         set(ENABLE_STREAMING OFF CACHE BOOL "Enable support for streaming")
 endif()
 if (ENABLE_DATA_CHANNEL)
         add_definitions(-DENABLE_DATA_CHANNEL)
         set(ENABLE_DATA_CHANNEL ON CACHE BOOL "Enable support for data channel")
-        set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIBKVSWEBRTC_INCLUDE_DIRS}" "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/Sctp")
+        set(LIBKVSWEBRTC_INCLUDE_DIRS "${LIBKVSWEBRTC_INCLUDE_DIRS}" "${LIB_SOURCE_DIR}/${LIBKVSWEBRTC_NAME}/src/source/sctp")
 else()
         set(ENABLE_DATA_CHANNEL OFF CACHE BOOL "Enable support for data channel")
 endif()

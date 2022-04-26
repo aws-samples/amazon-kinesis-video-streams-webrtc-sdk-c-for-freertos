@@ -16,15 +16,17 @@
 #include "AppCommon.h"
 #include "instrumented_allocators.h"
 
-INT32 WebRTCAppMain(INT32 argc, CHAR* argv[])
+INT32 WebRTCAppMain(PAppMediaSrc pAppMediaSrc)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PAppConfiguration pAppConfiguration = NULL;
     SET_INSTRUMENTED_ALLOCATORS();
 
     printf("[WebRTC] Starting\n");
+    UINT64 startTime, endTime;
 
-    retStatus = initApp(TRUE, TRUE, &pAppConfiguration);
+    startTime = GETTIME();
+    retStatus = initApp(TRUE, TRUE, pAppMediaSrc, &pAppConfiguration);
     if (retStatus != STATUS_SUCCESS) {
         printf("[WebRTC] initApp(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
@@ -34,6 +36,9 @@ INT32 WebRTCAppMain(INT32 argc, CHAR* argv[])
     if (retStatus != STATUS_SUCCESS) {
         printf("[WebRTC] runApp(): operation returned status code: 0x%08x \n", retStatus);
     }
+    endTime = GETTIME();
+
+    DLOGD("The bootup time of webrtc is %"PRIu64" ms", (endTime-startTime)/HUNDREDS_OF_NANOS_IN_A_MILLISECOND);
 
     // Checking for termination
     retStatus = pollApp(pAppConfiguration);

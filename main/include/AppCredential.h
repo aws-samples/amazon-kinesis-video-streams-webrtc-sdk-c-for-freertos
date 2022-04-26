@@ -18,7 +18,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <kvs/WebRTCClient.h>
+#include <kvs/webrtc_client.h>
 #include "AppConfig.h"
 #include "AppError.h"
 
@@ -46,7 +46,7 @@ STATUS searchSslCert(PAppCredential pAppCredential);
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS generateCertRoutine(PAppCredential pAppCredential);
+STATUS app_credential_generateCertRoutine(PAppCredential pAppCredential);
 /**
  * @brief pop the generated cert out of the queue.
  *
@@ -62,7 +62,7 @@ STATUS popGeneratedCert(PAppCredential pAppCredential, PRtcCertificate* ppRtcCer
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS createCredential(PAppCredential pAppCredential);
+STATUS app_credential_create(PAppCredential pAppCredential);
 /**
  * @brief destroy the app credential.
  *
@@ -70,7 +70,7 @@ STATUS createCredential(PAppCredential pAppCredential);
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS destroyCredential(PAppCredential pAppCredential);
+STATUS app_credential_destroy(PAppCredential pAppCredential);
 
 #ifdef __cplusplus
 }

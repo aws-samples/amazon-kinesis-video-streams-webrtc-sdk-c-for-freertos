@@ -19,13 +19,13 @@
 extern "C" {
 #endif
 
-#include <kvs/WebRTCClient.h>
+#include <kvs/webrtc_client.h>
 #include "AppConfig.h"
 #include "AppError.h"
 #include "AppCommon.h"
 
-STATUS initWebRtc(PAppConfiguration pAppConfiguration);
-STATUS deinitWebRtc(PAppConfiguration pAppConfiguration);
+STATUS app_webrtc_init(PAppConfiguration pAppConfiguration);
+STATUS app_webrtc_deinit(PAppConfiguration pAppConfiguration);
 #ifdef __cplusplus
 }
 #endif

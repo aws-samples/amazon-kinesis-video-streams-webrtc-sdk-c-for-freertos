@@ -12,25 +12,20 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-#define LOG_CLASS "AppWebRTC"
-#include "AppWebRTC.h"
+#ifndef __AWS_KVS_WEBRTC_APP_MEDIA_SINK_INCLUDE__
+#define __AWS_KVS_WEBRTC_APP_MEDIA_SINK_INCLUDE__
 
-STATUS app_webrtc_init(PAppConfiguration pAppConfiguration)
-{
-    STATUS retStatus = STATUS_SUCCESS;
-    retStatus = pc_initWebRtc();
-    if (retStatus != STATUS_SUCCESS) {
-        retStatus = STATUS_APP_WEBRTC_INIT;
-    }
-    return retStatus;
-}
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-STATUS app_webrtc_deinit(PAppConfiguration pAppConfiguration)
-{
-    STATUS retStatus = STATUS_SUCCESS;
-    retStatus = pc_deinitWebRtc();
-    if (retStatus != STATUS_SUCCESS) {
-        retStatus = STATUS_APP_WEBRTC_DEINIT;
-    }
-    return retStatus;
+#include <kvs/webrtc_client.h>
+#include "AppConfig.h"
+#include "AppError.h"
+
+PVOID app_media_sink_onFrame(PVOID pArgs);
+
+#ifdef __cplusplus
 }
+#endif
+#endif /* __AWS_KVS_WEBRTC_APP_MEDIA_SINK_INCLUDE__ */

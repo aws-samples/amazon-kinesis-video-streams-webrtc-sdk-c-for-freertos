@@ -18,12 +18,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <kvs/WebRTCClient.h>
+#include <kvs/webrtc_client.h>
 #include "AppConfig.h"
 #include "AppError.h"
 #include "AppCredential.h"
 
-typedef struct {
+typedef struct __AppSignaling{
     PAppCredential pAppCredential; //!< the context of credential
     SIGNALING_CLIENT_HANDLE signalingClientHandle;
     SignalingClientCallbacks signalingClientCallbacks;
@@ -44,7 +44,7 @@ typedef struct {
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS initAppSignaling(PAppSignaling pAppSignaling, SignalingClientMessageReceivedFunc onMessageReceived,
+STATUS app_signaling_init(PAppSignaling pAppSignaling, SignalingClientMessageReceivedFunc onMessageReceived,
                         SignalingClientStateChangedFunc onStateChanged, SignalingClientErrorReportFunc pOnError, UINT64 udata, BOOL useTurn);
 /**
  * @brief   initialize the context of app signaling
@@ -53,7 +53,7 @@ STATUS initAppSignaling(PAppSignaling pAppSignaling, SignalingClientMessageRecei
  *
  * @return the role type of signaling channel
  */
-SIGNALING_CHANNEL_ROLE_TYPE getAppSignalingRole(PAppSignaling pAppSignaling);
+SIGNALING_CHANNEL_ROLE_TYPE app_signaling_getRole(PAppSignaling pAppSignaling);
 /**
  * @brief   query the information of stun/turn servers
  *
@@ -63,7 +63,7 @@ SIGNALING_CHANNEL_ROLE_TYPE getAppSignalingRole(PAppSignaling pAppSignaling);
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS queryAppSignalingServer(PAppSignaling pAppSignaling, PRtcIceServer pIceServer, PUINT32 pServerNum);
+STATUS app_signaling_queryServer(PAppSignaling pAppSignaling, PRtcIceServer pIceServer, PUINT32 pServerNum);
 /**
  * @brief   connect to the signaling server
  *
@@ -71,7 +71,7 @@ STATUS queryAppSignalingServer(PAppSignaling pAppSignaling, PRtcIceServer pIceSe
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success
  */
-STATUS connectAppSignaling(PAppSignaling pAppSignaling);
+STATUS app_signaling_connect(PAppSignaling pAppSignaling);
 /**
  * @brief   connect to the signaling server
  *
@@ -79,10 +79,10 @@ STATUS connectAppSignaling(PAppSignaling pAppSignaling);
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success
  */
-STATUS checkAppSignaling(PAppSignaling pAppSignaling);
-STATUS sendAppSignalingMessage(PAppSignaling pAppSignaling, PSignalingMessage pMessage);
-STATUS restartAppSignaling(PAppSignaling pAppSignaling);
-STATUS freeAppSignaling(PAppSignaling pAppSignaling);
+STATUS app_signaling_check(PAppSignaling pAppSignaling);
+STATUS app_signaling_sendMsg(PAppSignaling pAppSignaling, PSignalingMessage pMessage);
+STATUS app_signaling_restart(PAppSignaling pAppSignaling);
+STATUS app_signaling_free(PAppSignaling pAppSignaling);
 
 #ifdef __cplusplus
 }
