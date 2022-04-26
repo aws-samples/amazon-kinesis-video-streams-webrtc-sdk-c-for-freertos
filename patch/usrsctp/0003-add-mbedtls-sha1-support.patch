@@ -1,7 +1,7 @@
-From ef150a1bf41b6942509735eae69183d06a4fcd30 Mon Sep 17 00:00:00 2001
+From 818a4f154e043907ce864ada4a47bfa3e4061f1f Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Fri, 23 Apr 2021 16:50:39 +0800
-Subject: [PATCH 3/5] add-mbedtls-sha1-support.
+Subject: [PATCH 3/6] add-mbedtls-sha1-support.
 
 ---
  CMakeLists.txt                 |  2 ++

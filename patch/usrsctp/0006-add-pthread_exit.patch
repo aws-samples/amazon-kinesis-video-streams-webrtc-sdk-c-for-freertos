@@ -1,0 +1,82 @@
+From a728ce12b36c18dfa5d135e3d0ad2b130c351f2a Mon Sep 17 00:00:00 2001
+From: ycyang1229 <yc.yang1229@gmail.com>
+Date: Tue, 26 Apr 2022 14:34:29 +0800
+Subject: [PATCH 6/6] add pthread_exit.
+
+---
+ usrsctplib/netinet/sctp_bsd_addr.c | 1 +
+ usrsctplib/netinet/sctp_callout.c  | 1 +
+ usrsctplib/user_recv_thread.c      | 5 +++++
+ 3 files changed, 7 insertions(+)
+
+diff --git a/usrsctplib/netinet/sctp_bsd_addr.c b/usrsctplib/netinet/sctp_bsd_addr.c
+index 71f82ca..ec900eb 100755
+--- a/usrsctplib/netinet/sctp_bsd_addr.c
++++ b/usrsctplib/netinet/sctp_bsd_addr.c
+@@ -167,6 +167,7 @@ sctp_iterator_thread(void *v SCTP_UNUSED)
+ 	SCTP_IPI_ITERATOR_WQ_UNLOCK();
+ #if defined(__Userspace__)
+ 	sctp_wakeup_iterator();
++	pthread_exit(NULL);
+ 	return (NULL);
+ #else
+ 	wakeup(&sctp_it_ctl.iterator_flags);
+diff --git a/usrsctplib/netinet/sctp_callout.c b/usrsctplib/netinet/sctp_callout.c
+index 0e780a8..de74d79 100755
+--- a/usrsctplib/netinet/sctp_callout.c
++++ b/usrsctplib/netinet/sctp_callout.c
+@@ -220,6 +220,7 @@ user_sctp_timer_iterate(void *arg)
+ 		}
+ 		sctp_handle_tick(sctp_msecs_to_ticks(TIMEOUT_INTERVAL));
+ 	}
++	pthread_exit(NULL);
+ 	return (NULL);
+ }
+ 
+diff --git a/usrsctplib/user_recv_thread.c b/usrsctplib/user_recv_thread.c
+index cc912cb..1a72948 100755
+--- a/usrsctplib/user_recv_thread.c
++++ b/usrsctplib/user_recv_thread.c
+@@ -176,6 +176,7 @@ recv_function_route(void *arg)
+ 			}
+ 		}
+ 	}
++	pthread_exit(NULL);
+ 	return (NULL);
+ }
+ #endif
+@@ -437,6 +438,7 @@ recv_function_raw(void *arg)
+ 	/* free the array itself */
+ 	free(recvmbuf);
+ 	SCTPDBG(SCTP_DEBUG_USR, "%s: Exiting SCTP/IP4 rcv\n", __func__);
++	pthread_exit(NULL);
+ 	return (NULL);
+ }
+ #endif
+@@ -623,6 +625,7 @@ recv_function_raw6(void *arg)
+ 	/* free the array itself */
+ 	free(recvmbuf6);
+ 	SCTPDBG(SCTP_DEBUG_USR, "%s: Exiting SCTP/IP6 rcv\n", __func__);
++	pthread_exit(NULL);
+ 	return (NULL);
+ }
+ #endif
+@@ -829,6 +832,7 @@ recv_function_udp(void *arg)
+ 	/* free the array itself */
+ 	free(udprecvmbuf);
+ 	SCTPDBG(SCTP_DEBUG_USR, "%s: Exiting SCTP/UDP/IP4 rcv\n", __func__);
++	pthread_exit(NULL);
+ 	return (NULL);
+ }
+ #endif
+@@ -1017,6 +1021,7 @@ recv_function_udp6(void *arg)
+ 	/* free the array itself */
+ 	free(udprecvmbuf6);
+ 	SCTPDBG(SCTP_DEBUG_USR, "%s: Exiting SCTP/UDP/IP6 rcv\n", __func__);
++	pthread_exit(NULL);
+ 	return (NULL);
+ }
+ #endif
+-- 
+2.17.1
+

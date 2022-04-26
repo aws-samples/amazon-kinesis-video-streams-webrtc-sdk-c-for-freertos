@@ -1,7 +1,7 @@
-From d74a746fb771dc344a9e409145ef01c519e20e25 Mon Sep 17 00:00:00 2001
+From 62033eec57345e31c81ae7a858339a2c89eb1081 Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Thu, 29 Apr 2021 17:23:05 +0800
-Subject: [PATCH 1/5] add lwip support.
+Subject: [PATCH 1/6] add lwip support.
 
 ---
  CMakeLists.txt                         |  12 +-
