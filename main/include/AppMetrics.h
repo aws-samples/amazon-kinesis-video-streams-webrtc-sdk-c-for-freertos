@@ -19,14 +19,14 @@
 extern "C" {
 #endif
 
-#include <kvs/WebRTCClient.h>
+#include <kvs/webrtc_client.h>
 #include "AppConfig.h"
 #include "AppError.h"
 
 UINT32 getLogLevel(VOID);
-STATUS setupFileLogging(PBOOL pEnable);
-STATUS closeFileLogging(VOID);
-STATUS logIceServerStats(PRtcPeerConnection pRtcPeerConnection, UINT32 index);
+STATUS app_metrics_setupFileLogging(PBOOL pEnable);
+STATUS app_metrics_closeFileLogging(VOID);
+STATUS app_metrics_logIceServerStats(PRtcPeerConnection pRtcPeerConnection, UINT32 index);
 STATUS logSelectedIceCandidatesInformation(PRtcPeerConnection pRtcPeerConnection);
 STATUS logSignalingClientStats(PSignalingClientMetrics pSignalingClientMetrics);
 

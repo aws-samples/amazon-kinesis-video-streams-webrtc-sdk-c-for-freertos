@@ -19,11 +19,12 @@
 extern "C" {
 #endif
 
-#include <kvs/WebRTCClient.h>
+#include <kvs/webrtc_client.h>
 #include "AppConfig.h"
 #include "AppError.h"
+#include "AppMediaSrc.h"
 
-INT32 WebRTCAppMain(INT32 argc, CHAR* argv[]);
+INT32 WebRTCAppMain(PAppMediaSrc pAppMediaSrc);
 
 #ifdef __cplusplus
 }

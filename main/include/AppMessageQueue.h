@@ -18,11 +18,17 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <kvs/WebRTCClient.h>
+/******************************************************************************
+ * HEADERS
+ ******************************************************************************/
+#include <kvs/webrtc_client.h>
 #include "AppConfig.h"
 #include "AppError.h"
 #include "stack_queue.h"
 
+/******************************************************************************
+ * DEFINITIONS
+ ******************************************************************************/
 typedef STATUS (*MsgHandleHook)(PVOID udata, PSignalingMessage pSignalingMessage);
 
 typedef struct {
@@ -36,8 +42,12 @@ typedef struct {
 typedef struct {
     PStackQueue pMsqQueue;
 } ConnectionMsgQ, *PConnectionMsgQ;
+
+/******************************************************************************
+ * FUNCTIONS
+ ******************************************************************************/
 /**
- * @brief create the pending message queue for the connection.
+ * @brief create the pending message queue for the new connection.
  *
  * @param[in] pConnectionMsgQ the context of the connection message queue.
  * @param[in] hashValue the hashvalue of this pending message queue.
@@ -45,7 +55,7 @@ typedef struct {
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS createPendingMsgQ(PConnectionMsgQ pConnectionMsgQ, UINT64 hashValue, PPendingMessageQueue* ppPendingMessageQueue);
+STATUS app_msg_q_createPendingMsgQ(PConnectionMsgQ pConnectionMsgQ, UINT64 hashValue, PPendingMessageQueue* ppPendingMessageQueue);
 /**
  * @brief push message into the pending message queue.
  *
@@ -54,10 +64,10 @@ STATUS createPendingMsgQ(PConnectionMsgQ pConnectionMsgQ, UINT64 hashValue, PPen
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS pushMsqIntoPendingMsgQ(PPendingMessageQueue pPendingMsgQ, PReceivedSignalingMessage pMsg);
+STATUS app_msg_q_pushMsqIntoPendingMsgQ(PPendingMessageQueue pPendingMsgQ, PReceivedSignalingMessage pMsg);
 /**
  * @brief   This api handles all the pending message but you need to pop pending message queue from connection message queue.
- *          It means you need to use this api with getPendingMsgQByHashVal().
+ *          It means you need to use this api with app_msg_q_getPendingMsgQByHashVal().
  *
  * @param[in] pPendingMsgQ the context of the pending message queue.
  * @param[in] msgHandleHook the callback of handling the pending messages.
@@ -65,7 +75,7 @@ STATUS pushMsqIntoPendingMsgQ(PPendingMessageQueue pPendingMsgQ, PReceivedSignal
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS handlePendingMsgQ(PPendingMessageQueue pPendingMsgQ, MsgHandleHook msgHandleHook, PVOID uData);
+STATUS app_msg_q_handlePendingMsgQ(PPendingMessageQueue pPendingMsgQ, MsgHandleHook msgHandleHook, PVOID uData);
 /**
  * @brief free the pending message queue.
  *
@@ -73,7 +83,7 @@ STATUS handlePendingMsgQ(PPendingMessageQueue pPendingMsgQ, MsgHandleHook msgHan
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS freePendingMsgQ(PPendingMessageQueue pPendingMessageQueue);
+STATUS app_msg_q_freePendingMsgQ(PPendingMessageQueue pPendingMessageQueue);
 /**
  * @brief create connection queue.
  *
@@ -81,7 +91,7 @@ STATUS freePendingMsgQ(PPendingMessageQueue pPendingMessageQueue);
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS createConnectionMsqQ(PConnectionMsgQ* ppConnectionMsgQ);
+STATUS app_msg_q_createConnectionMsqQ(PConnectionMsgQ* ppConnectionMsgQ);
 /**
  * @brief get the target pending message queue according to the clientHash
  *
@@ -92,7 +102,7 @@ STATUS createConnectionMsqQ(PConnectionMsgQ* ppConnectionMsgQ);
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS getPendingMsgQByHashVal(PConnectionMsgQ pConnectionMsgQ, UINT64 clientHash, BOOL remove, PPendingMessageQueue* ppPendingMsgQ);
+STATUS app_msg_q_getPendingMsgQByHashVal(PConnectionMsgQ pConnectionMsgQ, UINT64 clientHash, BOOL remove, PPendingMessageQueue *ppPendingMsgQ);
 /**
  * @brief remove all the expired pending message queues.
  *
@@ -101,7 +111,7 @@ STATUS getPendingMsgQByHashVal(PConnectionMsgQ pConnectionMsgQ, UINT64 clientHas
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS removeExpiredPendingMsgQ(PConnectionMsgQ pConnectionMsgQ, UINT64 interval);
+STATUS app_msg_q_removeExpiredPendingMsgQ(PConnectionMsgQ pConnectionMsgQ, UINT64 interval);
 /**
  * @brief freee the connection queues.
  *
@@ -109,7 +119,7 @@ STATUS removeExpiredPendingMsgQ(PConnectionMsgQ pConnectionMsgQ, UINT64 interval
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS freeConnectionMsgQ(PConnectionMsgQ* ppConnectionMsgQ);
+STATUS app_msg_q_freeConnectionMsgQ(PConnectionMsgQ* ppConnectionMsgQ);
 
 #ifdef __cplusplus
 }

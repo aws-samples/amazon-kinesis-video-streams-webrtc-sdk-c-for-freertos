@@ -19,11 +19,12 @@
 extern "C" {
 #endif
 
-#include <kvs/WebRTCClient.h>
+#include <kvs/webrtc_client.h>
 #include "AppConfig.h"
 #include "AppError.h"
 
 #ifdef ENABLE_DATA_CHANNEL
+VOID onDataChannelMessageMaster(UINT64 customData, PRtcDataChannel pDataChannel, BOOL isBinary, PBYTE pMessage, UINT32 pMessageLen);
 VOID onDataChannel(UINT64 userData, PRtcDataChannel pRtcDataChannel);
 #endif
 #ifdef __cplusplus

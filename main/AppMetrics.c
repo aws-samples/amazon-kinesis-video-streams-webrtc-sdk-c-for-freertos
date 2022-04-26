@@ -27,7 +27,7 @@ UINT32 getLogLevel(VOID)
     return logLevel;
 }
 
-STATUS setupFileLogging(PBOOL pEnable)
+STATUS app_metrics_setupFileLogging(PBOOL pEnable)
 {
     STATUS retStatus = STATUS_SUCCESS;
     BOOL enable = FALSE;
@@ -38,7 +38,7 @@ STATUS setupFileLogging(PBOOL pEnable)
     } else {
         CHK(FALSE, STATUS_SUCCESS);
     }
-    retStatus = createFileLogger(APP_METRICS_FILE_LOGGING_BUFFER_SIZE, APP_METRICS_LOG_FILES_MAX_NUMBER,
+    retStatus = file_logger_create(APP_METRICS_FILE_LOGGING_BUFFER_SIZE, APP_METRICS_LOG_FILES_MAX_NUMBER,
                                     (PCHAR) FILE_LOGGER_LOG_FILE_DIRECTORY_PATH, TRUE, TRUE, NULL);
     if (retStatus != STATUS_SUCCESS) {
         DLOGI("peration returned status code: 0x%08x \n", retStatus);
@@ -51,17 +51,17 @@ CleanUp:
     return retStatus;
 }
 
-STATUS closeFileLogging(VOID)
+STATUS app_metrics_closeFileLogging(VOID)
 {
     STATUS retStatus = STATUS_SUCCESS;
-    retStatus = freeFileLogger();
+    retStatus = file_logger_free();
     if (retStatus != STATUS_SUCCESS) {
         retStatus = STATUS_APP_METRICS_FREE_LOGGER;
     }
     return retStatus;
 }
 
-STATUS logIceServerStats(PRtcPeerConnection pRtcPeerConnection, UINT32 index)
+STATUS app_metrics_logIceServerStats(PRtcPeerConnection pRtcPeerConnection, UINT32 index)
 {
     ENTERS();
     STATUS retStatus = STATUS_SUCCESS;
@@ -71,7 +71,7 @@ STATUS logIceServerStats(PRtcPeerConnection pRtcPeerConnection, UINT32 index)
 
     pRtcMetrics->requestedTypeOfStats = RTC_STATS_TYPE_ICE_SERVER;
     pRtcMetrics->rtcStatsObject.iceServerStats.iceServerIndex = index;
-    CHK(rtcPeerConnectionGetMetrics(pRtcPeerConnection, NULL, pRtcMetrics) == STATUS_SUCCESS, STATUS_APP_METRICS_ICE_SERVER);
+    CHK(metrics_get(pRtcPeerConnection, NULL, pRtcMetrics) == STATUS_SUCCESS, STATUS_APP_METRICS_ICE_SERVER);
     DLOGD("ICE Server URL: %s", pRtcMetrics->rtcStatsObject.iceServerStats.url);
     DLOGD("ICE Server port: %d", pRtcMetrics->rtcStatsObject.iceServerStats.port);
     DLOGD("ICE Server protocol: %s", pRtcMetrics->rtcStatsObject.iceServerStats.protocol);
@@ -95,7 +95,7 @@ STATUS logSelectedIceCandidatesInformation(PRtcPeerConnection pRtcPeerConnection
 
     CHK(pRtcPeerConnection != NULL, STATUS_APP_METRICS_NULL_ARG);
     pRtcMetrics->requestedTypeOfStats = RTC_STATS_TYPE_LOCAL_CANDIDATE;
-    CHK(rtcPeerConnectionGetMetrics(pRtcPeerConnection, NULL, pRtcMetrics) == STATUS_SUCCESS, STATUS_APP_METRICS_LOCAL_ICE_CANDIDATE);
+    CHK(metrics_get(pRtcPeerConnection, NULL, pRtcMetrics) == STATUS_SUCCESS, STATUS_APP_METRICS_LOCAL_ICE_CANDIDATE);
     DLOGD("Local Candidate IP Address: %s", pRtcMetrics->rtcStatsObject.localIceCandidateStats.address);
     DLOGD("Local Candidate type: %s", pRtcMetrics->rtcStatsObject.localIceCandidateStats.candidateType);
     DLOGD("Local Candidate port: %d", pRtcMetrics->rtcStatsObject.localIceCandidateStats.port);
@@ -105,7 +105,7 @@ STATUS logSelectedIceCandidatesInformation(PRtcPeerConnection pRtcPeerConnection
     DLOGD("Local Candidate Ice server source: %s", pRtcMetrics->rtcStatsObject.localIceCandidateStats.url);
 
     pRtcMetrics->requestedTypeOfStats = RTC_STATS_TYPE_REMOTE_CANDIDATE;
-    CHK(rtcPeerConnectionGetMetrics(pRtcPeerConnection, NULL, pRtcMetrics) == STATUS_SUCCESS, STATUS_APP_METRICS_REMOTE_ICE_CANDIDATE);
+    CHK(metrics_get(pRtcPeerConnection, NULL, pRtcMetrics) == STATUS_SUCCESS, STATUS_APP_METRICS_REMOTE_ICE_CANDIDATE);
     DLOGD("Remote Candidate IP Address: %s", pRtcMetrics->rtcStatsObject.remoteIceCandidateStats.address);
     DLOGD("Remote Candidate type: %s", pRtcMetrics->rtcStatsObject.remoteIceCandidateStats.candidateType);
     DLOGD("Remote Candidate port: %d", pRtcMetrics->rtcStatsObject.remoteIceCandidateStats.port);

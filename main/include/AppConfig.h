@@ -19,7 +19,7 @@
 extern "C" {
 #endif
 
-#include <kvs/WebRTCClient.h>
+#include <kvs/webrtc_client.h>
 
 #define APP_MAX_CONCURRENT_STREAMING_SESSION 10
 #define APP_MASTER_CLIENT_ID                 "ProducerMaster"
@@ -28,7 +28,7 @@ extern "C" {
 #define APP_STATS_DURATION                   (60 * HUNDREDS_OF_NANOS_IN_A_SECOND)
 #define APP_PENDING_MESSAGE_CLEANUP_DURATION (20 * HUNDREDS_OF_NANOS_IN_A_SECOND)
 #define APP_PRE_GENERATE_CERT                TRUE
-#define APP_PRE_GENERATE_CERT_PERIOD         (1000 * HUNDREDS_OF_NANOS_IN_A_MILLISECOND)
+#define APP_PRE_GENERATE_CERT_PERIOD         (5000 * HUNDREDS_OF_NANOS_IN_A_MILLISECOND)
 #define APP_CA_CERT_PEM_FILE_EXTENSION       ".pem"
 
 #define APP_METRICS_FILE_LOGGING_BUFFER_SIZE (100 * 1024)
@@ -57,17 +57,15 @@ extern "C" {
 #define APP_AUDIO_TRACK_STREAM_ID "myKvsVideoStream"
 #define APP_AUDIO_TRACK_ID        "myAudioTrack"
 
-#define SAMPLE_HASH_TABLE_BUCKET_COUNT  50
-#define SAMPLE_HASH_TABLE_BUCKET_LENGTH 2
 
-#define SAMPLE_VIDEO_THREAD_NAME "videosource"
-#define SAMPLE_VIDEO_THREAD_SIZE 8192
-
-#define SAMPLE_AUDIO_THREAD_NAME "audiosource"
-#define SAMPLE_AUDIO_THREAD_SIZE 4096
-
-#define SAMPLE_TIMER_NAME "sampleTimer"
-#define SAMPLE_TIMER_SIZE 10240
+#define APP_MEDIA_CONTROL_THREAD_NAME "media_control"
+#define APP_MEDIA_CONTROL_THREAD_SIZE 4096
+#define APP_MEDIA_VIDEO_SENDER_THREAD_NAME "video_sender"
+#define APP_MEDIA_VIDEO_SENDER_THREAD_SIZE 8192
+#define APP_MEDIA_AUDIO_SENDER_THREAD_NAME "audio_sender"
+#define APP_MEDIA_AUDIO_SENDER_THREAD_SIZE 4096
+#define APP_COMMON_TIMER_NAME "app_common_timer"
+#define APP_COMMON_TIMER_SIZE 10240
 
 #ifdef __cplusplus
 }

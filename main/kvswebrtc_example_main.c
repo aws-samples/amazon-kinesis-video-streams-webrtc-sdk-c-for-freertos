@@ -28,6 +28,7 @@
 #include "esp_heap_caps.h"
 
 #include "AppMain.h"
+#include "AppMediaSrc_ESP32_FileSrc.h"
 
 /* The examples use WiFi configuration that you can set via project configuration menu
 
@@ -279,7 +280,7 @@ void app_main(void)
     setenv("AWS_IOT_CORE_THING_NAME", CONFIG)AWS_IOT_CORE_THING_NAME, 1);
     #endif
     
-    WebRTCAppMain(0, NULL);
+    WebRTCAppMain(&gAppMediaSrc);
 
     // All done, unmount partition and disable SDMMC or SPI peripheral
     esp_vfs_fat_sdmmc_unmount();

@@ -13,8 +13,10 @@
  * permissions and limitations under the License.
  */
 #define LOG_CLASS "AppFileSrc"
-#include "AppFileSrc.h"
+#include "AppMediaSrc_ESP32_FileSrc.h"
+#include "AppCommon.h"
 #include "fileio.h"
+
 #define NUMBER_OF_H264_FRAME_FILES               1500
 #define NUMBER_OF_OPUS_FRAME_FILES               618
 #define DEFAULT_FPS_VALUE                        25
@@ -61,7 +63,7 @@ STATUS readFrameFromDisk(PBYTE pFrame, PUINT32 pSize, PCHAR frameFilePath)
     size = *pSize;
 
     // Get the size and read into frame
-    retStatus = readFile(frameFilePath, TRUE, pFrame, &size);
+    retStatus = fileio_read(frameFilePath, TRUE, pFrame, &size);
     if (retStatus != STATUS_SUCCESS) {
         printf("[KVS Master] readFile(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
@@ -205,7 +207,25 @@ CleanUp:
     return (PVOID) (ULONG_PTR) retStatus;
 }
 
-STATUS initMediaSource(PMediaContext* ppMediaContext)
+STATUS app_media_source_detroy(PMediaContext* ppMediaContext)
+{
+    STATUS retStatus = STATUS_SUCCESS;
+    PFileSrcContext pFileSrcContext;
+
+    CHK(ppMediaContext != NULL, STATUS_MEDIA_NULL_ARG);
+    pFileSrcContext = (PFileSrcContext) *ppMediaContext;
+    CHK(pFileSrcContext != NULL, STATUS_MEDIA_NULL_ARG);
+    if (IS_VALID_MUTEX_VALUE(pFileSrcContext->codecConfLock)) {
+        MUTEX_FREE(pFileSrcContext->codecConfLock);
+    }
+
+    MEMFREE(pFileSrcContext);
+    *ppMediaContext = pFileSrcContext = NULL;
+CleanUp:
+    return retStatus;
+}
+
+STATUS app_media_source_init(PMediaContext* ppMediaContext)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PFileSrcContext pFileSrcContext = NULL;
@@ -237,14 +257,14 @@ CleanUp:
 
     if (STATUS_FAILED(retStatus)) {
         if (pFileSrcContext != NULL) {
-            detroyMediaSource(pFileSrcContext);
+            app_media_source_detroy(pFileSrcContext);
         }
     }
 
     return retStatus;
 }
 
-STATUS isMediaSourceReady(PMediaContext pMediaContext)
+STATUS app_media_source_isReady(PMediaContext pMediaContext)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PFileSrcContext pFileSrcContext = (PFileSrcContext) pMediaContext;
@@ -264,7 +284,7 @@ CleanUp:
     return retStatus;
 }
 
-STATUS queryMediaVideoCap(PMediaContext pMediaContext, RTC_CODEC* pCodec)
+STATUS app_media_source_queryVideoCap(PMediaContext pMediaContext, RTC_CODEC* pCodec)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PFileSrcContext pFileSrcContext = (PFileSrcContext) pMediaContext;
@@ -277,7 +297,7 @@ CleanUp:
     return retStatus;
 }
 
-STATUS queryMediaAudioCap(PMediaContext pMediaContext, RTC_CODEC* pCodec)
+STATUS app_media_source_queryAudioCap(PMediaContext pMediaContext, RTC_CODEC* pCodec)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PFileSrcContext pFileSrcContext = (PFileSrcContext) pMediaContext;
@@ -290,7 +310,7 @@ CleanUp:
     return retStatus;
 }
 
-STATUS linkMeidaSinkHook(PMediaContext pMediaContext, MediaSinkHook mediaSinkHook, PVOID udata)
+STATUS app_media_source_linkSinkHook(PMediaContext pMediaContext, MediaSinkHook mediaSinkHook, PVOID udata)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PFileSrcContext pFileSrcContext = (PFileSrcContext) pMediaContext;
@@ -301,7 +321,7 @@ CleanUp:
     return retStatus;
 }
 
-STATUS linkMeidaEosHook(PMediaContext pMediaContext, MediaEosHook mediaEosHook, PVOID udata)
+STATUS app_media_source_linkEosHook(PMediaContext pMediaContext, MediaEosHook mediaEosHook, PVOID udata)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PFileSrcContext pFileSrcContext = (PFileSrcContext) pMediaContext;
@@ -312,7 +332,7 @@ CleanUp:
     return retStatus;
 }
 
-PVOID runMediaSource(PVOID args)
+PVOID app_media_source_run(PVOID args)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PFileSrcContext pFileSrcContext = (PFileSrcContext) args;
@@ -322,8 +342,9 @@ PVOID runMediaSource(PVOID args)
 
     ATOMIC_STORE_BOOL(&pFileSrcContext->shutdownFileSrc, FALSE);
     DLOGI("media source is starting");
-    THREAD_CREATE_EX(&videoSenderTid, SAMPLE_VIDEO_THREAD_NAME, SAMPLE_VIDEO_THREAD_SIZE, sendVideoPackets, (PVOID) pFileSrcContext);
-    //THREAD_CREATE_EX(&audioSenderTid, SAMPLE_AUDIO_THREAD_NAME, SAMPLE_AUDIO_THREAD_SIZE, sendAudioPackets, (PVOID) pFileSrcContext);
+
+    THREAD_CREATE_EX(&videoSenderTid, APP_MEDIA_VIDEO_SENDER_THREAD_NAME, APP_MEDIA_VIDEO_SENDER_THREAD_SIZE, TRUE, sendVideoPackets, (PVOID) pFileSrcContext);
+    //THREAD_CREATE_EX(&audioSenderTid, APP_MEDIA_AUDIO_SENDER_THREAD_NAME, APP_MEDIA_AUDIO_SENDER_THREAD_SIZE, TRUE, sendAudioPackets, (PVOID) pFileSrcContext);
 
     if (videoSenderTid != INVALID_TID_VALUE) {
         //#TBD, the thread_join does not work.
@@ -337,7 +358,7 @@ CleanUp:
     return (PVOID)(ULONG_PTR) retStatus;
 }
 
-STATUS shutdownMediaSource(PMediaContext pMediaContext)
+STATUS app_media_source_shutdown(PMediaContext pMediaContext)
 {
     STATUS retStatus = STATUS_SUCCESS;
     PFileSrcContext pFileSrcContext = (PFileSrcContext) pMediaContext;
@@ -348,20 +369,15 @@ CleanUp:
     return retStatus;
 }
 
-STATUS detroyMediaSource(PMediaContext* ppMediaContext)
-{
-    STATUS retStatus = STATUS_SUCCESS;
-    PFileSrcContext pFileSrcContext;
-
-    CHK(ppMediaContext != NULL, STATUS_MEDIA_NULL_ARG);
-    pFileSrcContext = (PFileSrcContext) *ppMediaContext;
-    CHK(pFileSrcContext != NULL, STATUS_MEDIA_NULL_ARG);
-    if (IS_VALID_MUTEX_VALUE(pFileSrcContext->codecConfLock)) {
-        MUTEX_FREE(pFileSrcContext->codecConfLock);
-    }
-
-    MEMFREE(pFileSrcContext);
-    *ppMediaContext = pFileSrcContext = NULL;
-CleanUp:
-    return retStatus;
-}
+AppMediaSrc gAppMediaSrc = {
+    .app_media_source_init = app_media_source_init,
+    .app_media_source_isReady = app_media_source_isReady,
+    .app_media_source_queryVideoCap = app_media_source_queryVideoCap,
+    .app_media_source_queryAudioCap = app_media_source_queryAudioCap,
+    .app_media_source_linkSinkHook = app_media_source_linkSinkHook,
+    .app_media_source_linkEosHook = app_media_source_linkEosHook,
+    .app_media_source_run = app_media_source_run,
+    .app_media_source_shutdown = app_media_source_shutdown,
+    .app_media_source_isShutdown = NULL,
+    .app_media_source_detroy = app_media_source_detroy
+};

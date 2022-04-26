@@ -19,12 +19,12 @@
 extern "C" {
 #endif
 
-#include <kvs/WebRTCClient.h>
+#include <kvs/webrtc_client.h>
 #include "hash_table.h"
 #include "AppConfig.h"
 #include "AppError.h"
 #include "AppCredential.h"
-#include "AppFileSrc.h"
+#include "AppMediaSrc.h"
 #include "AppSignaling.h"
 #include "AppMessageQueue.h"
 #include "timer_queue.h"
@@ -48,19 +48,21 @@ typedef struct {
     volatile ATOMIC_BOOL mediaThreadStarted;     //!< the flag to indicate the status of the media thread.
     volatile ATOMIC_BOOL restartSignalingClient; //!< the flag to indicate we need to re-sync the singal server.
     volatile ATOMIC_BOOL peerConnectionConnected;
+    volatile ATOMIC_BOOL abortMediaControl;
 
     AppCredential appCredential; //!< the context of app credential.
     AppSignaling appSignaling;   //!< the context of app signaling.
+    PAppMediaSrc pAppMediaSrc;
     PVOID pMediaContext;         //!< the context of media.
 
-    TID mediaSenderTid;
+    TID mediaControlTid;
     startRoutine mediaSource;
     TIMER_QUEUE_HANDLE timerQueueHandle;
     UINT32 iceCandidatePairStatsTimerId; //!< the timer id.
     UINT32 pregenerateCertTimerId;
 
-    PConnectionMsgQ pRemotePeerPendingSignalingMessages; //!< stores signaling messages before receiving offer or answer.
     PHashTable pRemoteRtcPeerConnections;
+    PConnectionMsgQ pRemotePeerPendingSignalingMessages; //!< stores signaling messages before receiving offer or answer.
 
     MUTEX appConfigurationObjLock;
     CVAR cvar;
@@ -86,13 +88,15 @@ struct __StreamingSession {
     RtcSessionDescriptionInit answerSessionDescriptionInit;
     PAppConfiguration pAppConfiguration; //!< the context of the app
 
-    CHAR peerId[MAX_SIGNALING_CLIENT_ID_LEN +
-                1]; //!< https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis3.html
+    CHAR peerId[MAX_SIGNALING_CLIENT_ID_LEN + 1]; //!< https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis3.html
 
     UINT64 offerReceiveTime;
+    UINT64 startUpLatency;
+    BOOL firstFrame;
     BOOL firstKeyFrame;                  //!< the first key frame of this session is sent or not.
     RtcMetricsHistory rtcMetricsHistory; //!< the metrics of the previous packet.
     BOOL remoteCanTrickleIce;
+    PRtcDataChannel pRtcDataChannel;
 };
 /**
  * @brief   The initialization of this app.
@@ -103,7 +107,7 @@ struct __StreamingSession {
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS initApp(BOOL trickleIce, BOOL useTurn, PAppConfiguration* ppAppConfiguration);
+STATUS initApp(BOOL trickleIce, BOOL useTurn, PAppMediaSrc pAppMediaSrc, PAppConfiguration* ppAppConfiguration);
 /**
  * @brief start runnning the app.
  *
@@ -128,6 +132,8 @@ STATUS freeApp(PAppConfiguration* ppAppConfiguration);
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
 STATUS pollApp(PAppConfiguration pAppConfiguration);
+
+STATUS quitApp(VOID);
 #ifdef __cplusplus
 }
 #endif
