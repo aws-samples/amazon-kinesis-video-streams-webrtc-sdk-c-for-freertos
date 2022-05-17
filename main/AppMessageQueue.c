@@ -62,7 +62,7 @@ STATUS app_msg_q_pushMsqIntoPendingMsgQ(PPendingMessageQueue pPendingMsgQ, PRece
     CHK(NULL != (pReceivedSignalingMessageCopy = (PReceivedSignalingMessage) MEMCALLOC(1, SIZEOF(ReceivedSignalingMessage))),
         STATUS_APP_MSGQ_NOT_ENOUGH_MEMORY);
     *pReceivedSignalingMessageCopy = *pMsg;
-    CHK(stack_queue_enqueue(pPendingMsgQ->messageQueue, (UINT64) pReceivedSignalingMessageCopy) == STATUS_SUCCESS, STATUS_APP_MSGQ_PUSH_PENDING_MSQ);
+    CHK(stack_queue_enqueue(pPendingMsgQ->messageQueue, (UINT64) pReceivedSignalingMessageCopy) == STATUS_SUCCESS, STATUS_APP_MSGQ_PUSH_PENDING_MSGQ);
 
 CleanUp:
     if (STATUS_FAILED(retStatus)) {
@@ -78,22 +78,22 @@ STATUS app_msg_q_handlePendingMsgQ(PPendingMessageQueue pPendingMsgQ, MsgHandleH
     BOOL isEmpty = FALSE;
     PStackQueue pMessageQueue = NULL;
     PReceivedSignalingMessage pReceivedSignalingMessage = NULL;
-    UINT64 hashValue;
+    UINT64 pendingMsg;
 
     CHK(pPendingMsgQ != NULL, STATUS_APP_MSGQ_NULL_ARG);
     pMessageQueue = pPendingMsgQ->messageQueue;
 
     do {
-        CHK(stack_queue_isEmpty(pMessageQueue, &isEmpty) == STATUS_SUCCESS, STATUS_APP_MSGQ_EMPTY_PENDING_MSQ);
+        CHK(stack_queue_isEmpty(pMessageQueue, &isEmpty) == STATUS_SUCCESS, STATUS_APP_MSGQ_EMPTY_PENDING_MSGQ);
         if (!isEmpty) {
-            hashValue = 0;
-            CHK(stack_queue_dequeue(pMessageQueue, &hashValue) == STATUS_SUCCESS, STATUS_APP_MSGQ_POP_PENDING_MSQ);
-            pReceivedSignalingMessage = (PReceivedSignalingMessage) hashValue;
+            pendingMsg = 0;
+            CHK(stack_queue_dequeue(pMessageQueue, &pendingMsg) == STATUS_SUCCESS, STATUS_APP_MSGQ_POP_PENDING_MSGQ);
+            CHK(pendingMsg != NULL, STATUS_APP_MSGQ_NULL_PENDING_MSG);
+            pReceivedSignalingMessage = (PReceivedSignalingMessage) pendingMsg;
             if (msgHandleHook != NULL) {
-                CHK(msgHandleHook(uData, &pReceivedSignalingMessage->signalingMessage) == STATUS_SUCCESS, STATUS_APP_MSGQ_HANDLE_PENDING_MSQ);
+                CHK(msgHandleHook(uData, &pReceivedSignalingMessage->signalingMessage) == STATUS_SUCCESS, STATUS_APP_MSGQ_HANDLE_PENDING_MSG);
             }
-            MEMFREE(pReceivedSignalingMessage);
-            pReceivedSignalingMessage = NULL;
+            SAFE_MEMFREE(pReceivedSignalingMessage);
         }
     } while (!isEmpty);
 
@@ -173,7 +173,7 @@ STATUS app_msg_q_getPendingMsgQByHashVal(PConnectionMsgQ pConnectionMsgQ, UINT64
             // Check if the item needs to be removed
             if (remove) {
                 // This is OK to do as we are terminating the iterator anyway
-                CHK_STATUS((stackQueueRemoveItem(pConnections, data)));
+                CHK_STATUS((stack_queue_removeItem(pConnections, data)));
             }
         }
     }
@@ -207,7 +207,7 @@ STATUS app_msg_q_removeExpiredPendingMsgQ(PConnectionMsgQ pConnectionMsgQ, UINT6
 
         // Check for expiry
         pPendingMessageQueue = (PPendingMessageQueue) data;
-        CHK(pPendingMessageQueue != NULL, STATUS_APP_MSGQ_NULL_PENDING_MSQ);
+        CHK(pPendingMessageQueue != NULL, STATUS_APP_MSGQ_NULL_PENDING_MSGQ);
         if (pPendingMessageQueue->createTime + interval < curTime) {
             // Message queue has expired and needs to be freed
             app_msg_q_freePendingMsgQ(pPendingMessageQueue);
