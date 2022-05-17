@@ -37,7 +37,7 @@ static STATUS traverseDirectoryPEMFileScan(UINT64 userData, DIR_ENTRY_TYPES entr
         (STRCMPI(APP_CA_CERT_PEM_FILE_EXTENSION, &fileName[fileNameLen - ARRAY_SIZE(APP_CA_CERT_PEM_FILE_EXTENSION) + 1]) == 0)) {
         certName[0] = FPATHSEPARATOR;
         certName++;
-        STRCPY(certName, fileName);
+        STRNCPY(certName, fileName, MAX_PATH_LEN);
     }
 
     return STATUS_SUCCESS;

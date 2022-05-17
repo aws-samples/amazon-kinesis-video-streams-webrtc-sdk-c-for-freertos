@@ -624,7 +624,7 @@ STATUS app_common_createStreamingSession(PAppConfiguration pAppConfiguration, PC
     CHK(pAppMediaSrc != NULL, STATUS_APP_COMMON_NULL_ARG);
     CHK_STATUS((pAppMediaSrc->app_media_source_isReady(pAppConfiguration->pMediaContext)));
 
-    STRCPY(pStreamingSession->peerId, peerId);
+    STRNCPY(pStreamingSession->peerId, peerId, MAX_SIGNALING_CLIENT_ID_LEN);
     ATOMIC_STORE_BOOL(&pStreamingSession->peerIdReceived, TRUE);
 
     pStreamingSession->pAppConfiguration = pAppConfiguration;
@@ -648,8 +648,8 @@ STATUS app_common_createStreamingSession(PAppConfiguration pAppConfiguration, PC
     pVideoTrack->kind = MEDIA_STREAM_TRACK_KIND_VIDEO;
     pVideoTrack->codec = codec;
     videoRtpTransceiverInit.direction = RTC_RTP_TRANSCEIVER_DIRECTION_SENDONLY;
-    STRCPY(pVideoTrack->streamId, APP_VIDEO_TRACK_STREAM_ID);
-    STRCPY(pVideoTrack->trackId, APP_VIDEO_TRACK_ID);
+    STRNCPY(pVideoTrack->streamId, APP_VIDEO_TRACK_STREAM_ID, MAX_MEDIA_STREAM_ID_LEN);
+    STRNCPY(pVideoTrack->trackId, APP_VIDEO_TRACK_ID, MAX_MEDIA_STREAM_ID_LEN);
     CHK_STATUS(
         (pc_addTransceiver(pStreamingSession->pPeerConnection, pVideoTrack, &videoRtpTransceiverInit, &pStreamingSession->pVideoRtcRtpTransceiver)));
 
@@ -666,8 +666,8 @@ STATUS app_common_createStreamingSession(PAppConfiguration pAppConfiguration, PC
 #else
     //audioRtpTransceiverInit.direction =  RTC_RTP_TRANSCEIVER_DIRECTION_SENDONLY;
 #endif
-    //STRCPY(pAudioTrack->streamId, APP_AUDIO_TRACK_STREAM_ID);
-    //STRCPY(pAudioTrack->trackId, APP_AUDIO_TRACK_ID);
+    //STRNCPY(pAudioTrack->streamId, APP_AUDIO_TRACK_STREAM_ID, MAX_MEDIA_STREAM_ID_LEN);
+    //STRNCPY(pAudioTrack->trackId, APP_AUDIO_TRACK_ID, MAX_MEDIA_STREAM_ID_LEN);
     //CHK_STATUS(
     //   (pc_addTransceiver(pStreamingSession->pPeerConnection, pAudioTrack, &audioRtpTransceiverInit, &pStreamingSession->pAudioRtcRtpTransceiver)));
 
@@ -804,7 +804,7 @@ STATUS initApp(BOOL trickleIce, BOOL useTurn, PAppMediaSrc pAppMediaSrc, PAppCon
     pAppSignaling->clientInfo.version = SIGNALING_CLIENT_INFO_CURRENT_VERSION;
     //pAppSignaling->clientInfo.loggingLevel = getLogLevel();
     //pAppSignaling->clientInfo.cacheFilePath = NULL; // Use the default path
-    STRCPY(pAppSignaling->clientInfo.clientId, APP_MASTER_CLIENT_ID);
+    STRNCPY(pAppSignaling->clientInfo.clientId, APP_MASTER_CLIENT_ID, MAX_SIGNALING_CLIENT_ID_LEN);
     
     CHK_STATUS((app_signaling_init(pAppSignaling, app_common_onSignalingMessageReceived, app_common_onSignalingClientStateChanged, app_common_onSignalingClientError,
                                  (UINT64) pAppConfiguration, useTurn)));
