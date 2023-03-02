@@ -29,6 +29,36 @@ menu "Example Configuration"
         default "aws-secret-access-key"
         help
             Set AWS_SECRET_ACCESS_KEY for kvs webrtc.
+
+    config AWS_IOT_CORE_CREDENTIAL_ENDPOINT
+        string "AWS Iot Core Credential Endpoint"
+        default "aws-iot-core-credential-endpoint"
+        help
+            Set AWS_IOT_CORE_CREDENTIAL_ENDPOINT for kvs webrtc.
+
+    config AWS_IOT_CORE_CERT
+        string "AWS Iot Core Cert"
+        default "aws-iot-core-cert"
+        help
+           Set AWS_IOT_CORE_CERT for kvs webrtc.
+
+    config AWS_IOT_CORE_PRIVATE_KEY
+        string "AWS Iot Core Private Key"
+        default "aws-iot-core-private-key"
+        help
+           Set AWS_IOT_CORE_PRIVATE_KEY for kvs webrtc.
+
+    config AWS_IOT_CORE_ROLE_ALIAS
+        string "AWS Iot Core Role Alias"
+        default "aws-iot-core-role-alias"
+        help
+           Set AWS_IOT_CORE_ROLE_ALIAS for kvs webrtc.
+
+    config AWS_IOT_CORE_THING_NAME
+        string "AWS Iot Core Thing Name"
+        default "aws-iot-core-thing-name"
+        help
+           Set AWS_IOT_CORE_THING_NAME for kvs webrtc.
     
     config AWS_KVS_LOG_LEVEL
         string "AWS KVS Log Level"
