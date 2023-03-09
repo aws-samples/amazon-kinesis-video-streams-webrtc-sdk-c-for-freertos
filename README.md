@@ -12,21 +12,7 @@ git submodule update --init --recursive
 
 ## Reference platform
 
-We use [ESP IDF 4.3.1](https://github.com/espressif/esp-idf/releases/tag/v4.3.1) and the [ESP-Wrover-Kit](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html) as the reference platform. Please follow the [Espressif instructions](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html) to set up the environment. 
-
- There is one modification you need to apply to the ESP IDF.
-
-We have used [mbedtls-2.16.11-idf](https://github.com/espressif/mbedtls) in this project. 
-
-WebRTC needs the functionality of DTLS-for-SRTP ([RFC5764](https://tools.ietf.org/html/rfc5764)). mbedTLS does not support this specification when this project was created. There is one pull request in mbedTLS ([#3235](https://github.com/ARMmbed/mbedtls/pull/3235#)) in progress for adding that support.  Before mbedTLS adopts that pull request,  we need to apply it on top of mbedtls-2.16.11-idf.  If your IDF installation has a mbedTLS version lower than 2.16.11-idf, please upgrade it. 
-
-In this project, we have included all patches from the pull request [pr1813-2.16.6](https://gitlab.linphone.org/BC/public/external/mbedtls/tree/pr1813-2.16.6) under the patches/mbedtls directory, therefore you do not need to pull those patches by yourself.  
-
-Apply the patch located in the patch/mbedtls directory of this project.
-
-```
-esp-idf/components/mbedtls/mbedtls$ git am your_demo_path/patch/mbedtls/*
-```
+We use [ESP IDF 4.4.2](https://github.com/espressif/esp-idf/releases/tag/v4.4.2) and the [ESP-Wrover-Kit](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html) as the reference platform. Please follow the [Espressif instructions](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html) to set up the environment.
 
 ## Apply patches
 
@@ -47,10 +33,6 @@ This project uses v2.3.0 of libsrtp.  Please apply patches located in patch/libs
 ```
 main/lib/libsrtp$ git am ../../../patch/libsrtp/*
 ```
-
-### [mbedtls-2.16.11-idf](https://github.com/espressif/mbedtls)
-
-This has been described in the “Reference platform” section above.
 
 ### [usrsctp](https://github.com/sctplab/usrsctp/commit/939d48f9632d69bf170c7a84514b312b6b42257d)
 

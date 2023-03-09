@@ -1,5 +1,6 @@
 option(ENABLE_STREAMING "enable the streaming" ON)
 option(ENABLE_DATA_CHANNEL "enable the data channel" ON)
+option(ENABLE_HEADER_CONFIG_CLIENT_INFO "enable config app client info with config header" OFF)
 
 set(LIB_SOURCE_DIR "${CMAKE_SOURCE_DIR}/main/lib")
 

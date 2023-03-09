@@ -92,7 +92,7 @@ STATUS app_signaling_connect(PAppSignaling pAppSignaling)
     CHK(signaling_client_create(&pAppSignaling->clientInfo, &pAppSignaling->channelInfo, &pAppSignaling->signalingClientCallbacks,
                                   pAppSignaling->pAppCredential->pCredentialProvider, &pAppSignaling->signalingClientHandle) == STATUS_SUCCESS,
         STATUS_APP_SIGNALING_CREATE);
-    DLOGD("Signaling client created successfully\n");
+    DLOGD("Signaling client created successfully");
     // Enable the processing of the messages
     CHK(signaling_client_connect(pAppSignaling->signalingClientHandle) == STATUS_SUCCESS, STATUS_APP_SIGNALING_CONNECT);
 
