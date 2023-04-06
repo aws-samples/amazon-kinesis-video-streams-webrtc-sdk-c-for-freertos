@@ -1,0 +1,650 @@
+From 7555145451a03adc93d131c4b97a5a9e4f71924d Mon Sep 17 00:00:00 2001
+From: Lina Chen <chenln1124@thundersoft.com>
+Date: Thu, 6 Apr 2023 11:14:24 +0800
+Subject: [PATCH] Enable on anyke platform.
+
+---
+ CMakeLists.txt           |   4 +-
+ include/CMakeLists.txt   |  12 +--
+ include/mbedtls/config.h |  14 +--
+ library/CMakeLists.txt   |   1 +
+ library/entropy_alt.c    |  70 +++++++++++++
+ library/net_sockets.c    | 216 +++++++++++++++++++++++++++++++++++----
+ 6 files changed, 282 insertions(+), 35 deletions(-)
+ mode change 100644 => 100755 CMakeLists.txt
+ mode change 100644 => 100755 include/CMakeLists.txt
+ mode change 100644 => 100755 include/mbedtls/config.h
+ mode change 100644 => 100755 library/CMakeLists.txt
+ create mode 100755 library/entropy_alt.c
+ mode change 100644 => 100755 library/net_sockets.c
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+old mode 100644
+new mode 100755
+index e18f607be..29984d393
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -45,7 +45,7 @@ set(MBEDTLS_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+ option(USE_PKCS11_HELPER_LIBRARY "Build mbed TLS with the pkcs11-helper library." OFF)
+ option(ENABLE_ZLIB_SUPPORT "Build mbed TLS with zlib library." OFF)
+ 
+-option(ENABLE_PROGRAMS "Build mbed TLS programs." ON)
++option(ENABLE_PROGRAMS "Build mbed TLS programs." OFF)
+ 
+ option(UNSAFE_BUILD "Allow unsafe builds. These builds ARE NOT SECURE." OFF)
+ option(MBEDTLS_FATAL_WARNINGS "Compiler warnings treated as errors" ON)
+@@ -59,7 +59,7 @@ string(REGEX MATCH "MSVC" CMAKE_COMPILER_IS_MSVC "${CMAKE_C_COMPILER_ID}")
+ if(CMAKE_COMPILER_IS_MSVC)
+     option(ENABLE_TESTING "Build mbed TLS tests." OFF)
+ else()
+-    option(ENABLE_TESTING "Build mbed TLS tests." ON)
++    option(ENABLE_TESTING "Build mbed TLS tests." OFF)
+ endif()
+ 
+ # Warning string - created as a list for compatibility with CMake 2.8
+diff --git a/include/CMakeLists.txt b/include/CMakeLists.txt
+old mode 100644
+new mode 100755
+index 62c0f620a..1a68ce029
+--- a/include/CMakeLists.txt
++++ b/include/CMakeLists.txt
+@@ -5,13 +5,13 @@ if(INSTALL_MBEDTLS_HEADERS)
+     file(GLOB headers "mbedtls/*.h")
+     file(GLOB psa_headers "psa/*.h")
+ 
+-    install(FILES ${headers}
+-        DESTINATION include/mbedtls
+-        PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
++    # install(FILES ${headers}
++    #     DESTINATION include/mbedtls
++    #     PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+ 
+-    install(FILES ${psa_headers}
+-        DESTINATION include/psa
+-        PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
++    # install(FILES ${psa_headers}
++    #     DESTINATION include/psa
++    #     PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+ 
+ endif(INSTALL_MBEDTLS_HEADERS)
+ 
+diff --git a/include/mbedtls/config.h b/include/mbedtls/config.h
+old mode 100644
+new mode 100755
+index 61db79362..b68fe59e2
+--- a/include/mbedtls/config.h
++++ b/include/mbedtls/config.h
+@@ -135,7 +135,7 @@
+  *       regardless of the setting of MBEDTLS_HAVE_TIME, unless
+  *       MBEDTLS_TIMING_ALT is used. See timing.c for more information.
+  */
+-#define MBEDTLS_HAVE_TIME
++//#define MBEDTLS_HAVE_TIME
+ 
+ /**
+  * \def MBEDTLS_HAVE_TIME_DATE
+@@ -156,7 +156,7 @@
+  * mbedtls_platform_gmtime_r() at compile-time by using the macro
+  * MBEDTLS_PLATFORM_GMTIME_R_ALT.
+  */
+-#define MBEDTLS_HAVE_TIME_DATE
++//#define MBEDTLS_HAVE_TIME_DATE
+ 
+ /**
+  * \def MBEDTLS_PLATFORM_MEMORY
+@@ -180,7 +180,7 @@
+  *
+  * Enable this layer to allow use of alternative memory allocators.
+  */
+-//#define MBEDTLS_PLATFORM_MEMORY
++#define MBEDTLS_PLATFORM_MEMORY
+ 
+ /**
+  * \def MBEDTLS_PLATFORM_NO_STD_FUNCTIONS
+@@ -568,7 +568,7 @@
+  *
+  * Uncomment to use your own hardware entropy collector.
+  */
+-//#define MBEDTLS_ENTROPY_HARDWARE_ALT
++#define MBEDTLS_ENTROPY_HARDWARE_ALT
+ 
+ /**
+  * \def MBEDTLS_AES_ROM_TABLES
+@@ -1252,7 +1252,7 @@
+  *
+  * Uncomment this macro to disable the built-in platform entropy functions.
+  */
+-//#define MBEDTLS_NO_PLATFORM_ENTROPY
++#define MBEDTLS_NO_PLATFORM_ENTROPY
+ 
+ /**
+  * \def MBEDTLS_ENTROPY_FORCE_SHA256
+@@ -1953,7 +1953,7 @@
+  *
+  * Uncomment this to enable support for use_srtp extension.
+  */
+-//#define MBEDTLS_SSL_DTLS_SRTP
++#define MBEDTLS_SSL_DTLS_SRTP
+ 
+ /**
+  * \def MBEDTLS_SSL_DTLS_CLIENT_PORT_REUSE
+@@ -3498,7 +3498,7 @@
+  *
+  * This module is used by the HAVEGE random number generator.
+  */
+-#define MBEDTLS_TIMING_C
++//#define MBEDTLS_TIMING_C
+ 
+ /**
+  * \def MBEDTLS_VERSION_C
+diff --git a/library/CMakeLists.txt b/library/CMakeLists.txt
+old mode 100644
+new mode 100755
+index fd3a3e71c..f88e63e1c
+--- a/library/CMakeLists.txt
++++ b/library/CMakeLists.txt
+@@ -36,6 +36,7 @@ set(src_crypto
+     ecjpake.c
+     ecp.c
+     ecp_curves.c
++    entropy_alt.c
+     entropy.c
+     entropy_poll.c
+     error.c
+diff --git a/library/entropy_alt.c b/library/entropy_alt.c
+new file mode 100755
+index 000000000..a49ae2dc0
+--- /dev/null
++++ b/library/entropy_alt.c
+@@ -0,0 +1,70 @@
++/*
++ *  Entropy accumulator implementation
++ *
++ *  Copyright (C) 2006-2016, ARM Limited, All Rights Reserved
++ *  SPDX-License-Identifier: Apache-2.0
++ *
++ *  Licensed under the Apache License, Version 2.0 (the "License"); you may
++ *  not use this file except in compliance with the License.
++ *  You may obtain a copy of the License at
++ *
++ *  http://www.apache.org/licenses/LICENSE-2.0
++ *
++ *  Unless required by applicable law or agreed to in writing, software
++ *  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
++ *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *  See the License for the specific language governing permissions and
++ *  limitations under the License.
++ *
++ *  This file is part of mbed TLS (https://tls.mbed.org)
++ */
++
++#if !defined(MBEDTLS_CONFIG_FILE)
++#include "mbedtls/config.h"
++#else
++#include MBEDTLS_CONFIG_FILE
++#endif
++
++#include <sys/types.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <string.h>
++
++#include "mbedtls/entropy_poll.h"
++
++#if defined(MBEDTLS_ENTROPY_C)
++
++#if defined(MBEDTLS_ENTROPY_HARDWARE_ALT)
++
++
++static int get_random_bytes(void *buf, unsigned int len)
++{
++    unsigned int ranbuf;
++    unsigned int *lp;
++    int i, count;
++    count = len / sizeof(unsigned int);
++    lp = (unsigned int *) buf;
++
++    for (i = 0; i < count; i ++) {
++        lp[i] = rand();
++        len -= sizeof(unsigned int);
++    }
++
++    if (len > 0) {
++        ranbuf = rand();
++        memcpy(&lp[i], &ranbuf, len);
++    }
++    return 0;
++}
++
++int mbedtls_hardware_poll( void *data,
++                           unsigned char *output, size_t len, size_t *olen )
++{
++    (void)data;
++    get_random_bytes(output, len);
++    *olen = len;
++    return 0;
++}
++#endif /* MBEDTLS_ENTROPY_HARDWARE_ALT */
++
++#endif /* MBEDTLS_ENTROPY_C */
+diff --git a/library/net_sockets.c b/library/net_sockets.c
+old mode 100644
+new mode 100755
+index b2cab503f..3f7c2ace2
+--- a/library/net_sockets.c
++++ b/library/net_sockets.c
+@@ -20,22 +20,23 @@
+ /* Enable definition of getaddrinfo() even when compiling with -std=c99. Must
+  * be set before config.h, which pulls in glibc's features.h indirectly.
+  * Harmless on other platforms. */
+-#ifndef _POSIX_C_SOURCE
+-#define _POSIX_C_SOURCE 200112L
+-#endif
+-#ifndef _XOPEN_SOURCE
+-#define _XOPEN_SOURCE 600 /* sockaddr_storage */
+-#endif
++// #ifndef _POSIX_C_SOURCE
++// #define _POSIX_C_SOURCE 200112L
++// #endif
++// #ifndef _XOPEN_SOURCE
++// #define _XOPEN_SOURCE 600 /* sockaddr_storage */
++// #endif
+ 
+ #include "common.h"
+ 
+ #if defined(MBEDTLS_NET_C)
+-
++/*
+ #if !defined(unix) && !defined(__unix__) && !defined(__unix) && \
+     !defined(__APPLE__) && !defined(_WIN32) && !defined(__QNXNTO__) && \
+     !defined(__HAIKU__) && !defined(__midipix__)
+ #error "This module only works on Unix and Windows, see MBEDTLS_NET_C in config.h"
+ #endif
++*/
+ 
+ #include "mbedtls/platform.h"
+ 
+@@ -76,6 +77,26 @@
+ 
+ static int wsa_init_done = 0;
+ 
++#elif defined(__ICCARM__) || defined(__CC_ARM) || defined ( __GNUC__ )
++
++#include "lwip/sockets.h"
++#include "lwip/inet.h"
++#if LWIP_DNS
++#include "lwip/netdb.h"
++#endif
++#include <errno.h>
++
++#define net_htons(n) htons(n)
++#define net_htonl(n) htonl(n)
++
++#define IS_EINTR( ret ) ( ( ret ) == EINTR )
++
++#define read        lwip_read
++#define write       lwip_write
++#define select      lwip_select
++#define fcntl       lwip_fcntl
++#define close       lwip_close
++
+ #else /* ( _WIN32 || _WIN32_WCE ) && !EFIX64 && !EFI32 */
+ 
+ #include <sys/types.h>
+@@ -126,7 +147,7 @@ static int net_prepare( void )
+         wsa_init_done = 1;
+     }
+ #else
+-#if !defined(EFIX64) && !defined(EFI32)
++#if !defined(EFIX64) && !defined(EFI32) && !defined(__ICCARM__) && !defined(__CC_ARM) &&  !defined ( __GNUC__ )
+     signal( SIGPIPE, SIG_IGN );
+ #endif
+ #endif
+@@ -172,6 +193,7 @@ void mbedtls_net_init( mbedtls_net_context *ctx )
+ int mbedtls_net_connect( mbedtls_net_context *ctx, const char *host,
+                          const char *port, int proto )
+ {
++#if defined(MBEDTLS_HAVE_IPV6)
+     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+     struct addrinfo hints, *addr_list, *cur;
+ 
+@@ -212,6 +234,51 @@ int mbedtls_net_connect( mbedtls_net_context *ctx, const char *host,
+     freeaddrinfo( addr_list );
+ 
+     return( ret );
++#else
++    /* Legacy IPv4-only version */
++
++    int ret;
++    int type, protocol;
++    struct sockaddr_in server_addr;
++#if LWIP_DNS
++    struct hostent *server_host;
++#endif
++    if( ( ret = net_prepare() ) != 0 )
++        return( ret );
++
++    type = ( proto == MBEDTLS_NET_PROTO_UDP ) ? SOCK_DGRAM : SOCK_STREAM;
++    protocol = ( proto == MBEDTLS_NET_PROTO_UDP ) ? IPPROTO_UDP : IPPROTO_TCP;
++
++#if LWIP_DNS
++    if( ( server_host = gethostbyname( host ) ) == NULL )
++        return( MBEDTLS_ERR_NET_UNKNOWN_HOST );
++
++    if( ( ctx->fd = (int) socket( AF_INET, type, protocol ) ) < 0 )
++        return( MBEDTLS_ERR_NET_SOCKET_FAILED );
++
++    memcpy( (void *) &server_addr.sin_addr,
++            (void *) server_host->h_addr,
++                     4 );
++#else
++    if( ( ctx->fd = (int) socket( AF_INET, type, protocol ) ) < 0 )
++        return( MBEDTLS_ERR_NET_SOCKET_FAILED );
++
++    server_addr.sin_len = sizeof(server_addr);
++    server_addr.sin_addr.s_addr = inet_addr(host);
++#endif
++
++    server_addr.sin_family = AF_INET;
++    server_addr.sin_port   = net_htons( atoi(port) );
++
++    if( connect( ctx->fd, (struct sockaddr *) &server_addr,
++                 sizeof( server_addr ) ) < 0 )
++    {
++        close( ctx->fd );
++        return( MBEDTLS_ERR_NET_CONNECT_FAILED );
++    }
++
++    return( 0 );
++#endif /* MBEDTLS_HAVE_IPV6 */
+ }
+ 
+ /*
+@@ -219,6 +286,7 @@ int mbedtls_net_connect( mbedtls_net_context *ctx, const char *host,
+  */
+ int mbedtls_net_bind( mbedtls_net_context *ctx, const char *bind_ip, const char *port, int proto )
+ {
++#if defined(MBEDTLS_HAVE_IPV6)
+     int n, ret;
+     struct addrinfo hints, *addr_list, *cur;
+ 
+@@ -283,7 +351,75 @@ int mbedtls_net_bind( mbedtls_net_context *ctx, const char *bind_ip, const char
+     freeaddrinfo( addr_list );
+ 
+     return( ret );
++#else
++    /* Legacy IPv4-only version */
++
++    int ret, c[4];
++    int type, protocol;
++    struct sockaddr_in server_addr;
++#if SO_REUSE
++    int n = 1;
++#endif
++
++    if( ( ret = net_prepare() ) != 0 )
++        return( ret );
++
++    type = ( proto == MBEDTLS_NET_PROTO_UDP ) ? SOCK_DGRAM : SOCK_STREAM;
++    protocol = ( proto == MBEDTLS_NET_PROTO_UDP ) ? IPPROTO_UDP : IPPROTO_TCP;
++
++    if( ( ctx->fd = (int) socket( AF_INET, type, protocol ) ) < 0 )
++        return( MBEDTLS_ERR_NET_SOCKET_FAILED );
++
++    /*SO_REUSEADDR option dafault is disable in source code(lwip)*/
++#if SO_REUSE
++    if( setsockopt( ctx->fd, SOL_SOCKET, SO_REUSEADDR,
++                    (const char *) &n, sizeof( n ) ) != 0 )
++    {
++        close( ctx->fd );
++        return( MBEDTLS_ERR_NET_SOCKET_FAILED );
++    }
++#endif
++
++    server_addr.sin_addr.s_addr = net_htonl( INADDR_ANY );
++    server_addr.sin_family      = AF_INET;
++    server_addr.sin_port        = net_htons( atoi(port) );
++
++    if( bind_ip != NULL )
++    {
++        memset( c, 0, sizeof( c ) );
++        sscanf( bind_ip, "%d.%d.%d.%d", &c[0], &c[1], &c[2], &c[3] );
++
++        for( n = 0; n < 4; n++ )
++            if( c[n] < 0 || c[n] > 255 )
++                break;
++
++        if( n == 4 )
++            server_addr.sin_addr.s_addr = net_htonl(
++                ( (uint32_t) c[0] << 24 ) |
++                ( (uint32_t) c[1] << 16 ) |
++                ( (uint32_t) c[2] <<  8 ) |
++                ( (uint32_t) c[3]       ) );
++    }
++
++    if( bind( ctx->fd, (struct sockaddr *) &server_addr,
++              sizeof( server_addr ) ) < 0 )
++    {
++        close( ctx->fd );
++        return( MBEDTLS_ERR_NET_BIND_FAILED );
++    }
++
++    /* Listen only makes sense for TCP */
++    if( proto == MBEDTLS_NET_PROTO_TCP )
++    {
++        if( listen( ctx->fd, MBEDTLS_NET_LISTEN_BACKLOG ) != 0 )
++        {
++            close( ctx->fd );
++            return( MBEDTLS_ERR_NET_LISTEN_FAILED );
++        }
++    }
+ 
++    return( 0 );
++#endif /* MBEDTLS_HAVE_IPV6 */
+ }
+ 
+ #if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
+@@ -306,12 +442,16 @@ static int net_would_block( const mbedtls_net_context *ctx )
+  */
+ static int net_would_block( const mbedtls_net_context *ctx )
+ {
++    /* To avoid gcc warnings */
++    ( void ) ctx;
++
++#ifdef ERRNO
+     int err = errno;
+ 
+     /*
+      * Never return 'WOULD BLOCK' on a blocking socket
+      */
+-    if( ( fcntl( ctx->fd, F_GETFL ) & O_NONBLOCK ) != O_NONBLOCK )
++    if( ( fcntl( ctx->fd, F_GETFL, 0 ) & O_NONBLOCK ) != O_NONBLOCK )
+     {
+         errno = err;
+         return( 0 );
+@@ -327,6 +467,7 @@ static int net_would_block( const mbedtls_net_context *ctx )
+ #endif
+             return( 1 );
+     }
++#endif
+     return( 0 );
+ }
+ #endif /* ( _WIN32 || _WIN32_WCE ) && !EFIX64 && !EFI32 */
+@@ -341,7 +482,11 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+     int type;
+ 
++#if defined(MBEDTLS_HAVE_IPV6)
+     struct sockaddr_storage client_addr;
++#else
++    struct sockaddr_in client_addr;
++#endif
+ 
+ #if defined(__socklen_t_defined) || defined(_SOCKLEN_T) ||  \
+     defined(_SOCKLEN_T_DECLARED) || defined(__DEFINED_socklen_t) || \
+@@ -355,7 +500,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+ 
+     /* Is this a TCP or UDP socket? */
+     if( getsockopt( bind_ctx->fd, SOL_SOCKET, SO_TYPE,
+-                    (void *) &type, &type_len ) != 0 ||
++                    (void *) &type, (u32_t*)&type_len ) != 0 ||
+         ( type != SOCK_STREAM && type != SOCK_DGRAM ) )
+     {
+         return( MBEDTLS_ERR_NET_ACCEPT_FAILED );
+@@ -365,7 +510,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+     {
+         /* TCP: actual accept() */
+         ret = client_ctx->fd = (int) accept( bind_ctx->fd,
+-                                             (struct sockaddr *) &client_addr, &n );
++                                             (struct sockaddr *) &client_addr, (u32_t*)&n );
+     }
+     else
+     {
+@@ -373,7 +518,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+         char buf[1] = { 0 };
+ 
+         ret = (int) recvfrom( bind_ctx->fd, buf, sizeof( buf ), MSG_PEEK,
+-                        (struct sockaddr *) &client_addr, &n );
++                        (struct sockaddr *) &client_addr, (u32_t*)&n );
+ 
+ #if defined(_WIN32)
+         if( ret == SOCKET_ERROR &&
+@@ -397,7 +542,12 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+      * then bind a new socket to accept new connections */
+     if( type != SOCK_STREAM )
+     {
++#if defined(MBEDTLS_HAVE_IPV6)
+         struct sockaddr_storage local_addr;
++#else
++        struct sockaddr_in local_addr;
++#endif
++
+         int one = 1;
+ 
+         if( connect( bind_ctx->fd, (struct sockaddr *) &client_addr, n ) != 0 )
+@@ -406,6 +556,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+         client_ctx->fd = bind_ctx->fd;
+         bind_ctx->fd   = -1; /* In case we exit early */
+ 
++#if defined(MBEDTLS_HAVE_IPV6)
+         n = sizeof( struct sockaddr_storage );
+         if( getsockname( client_ctx->fd,
+                          (struct sockaddr *) &local_addr, &n ) != 0 ||
+@@ -416,6 +567,18 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+         {
+             return( MBEDTLS_ERR_NET_SOCKET_FAILED );
+         }
++#else
++        n = sizeof( struct sockaddr_in );
++        if( getsockname( client_ctx->fd,
++                         (struct sockaddr *) &local_addr, (u32_t*)&n ) != 0 ||
++            ( bind_ctx->fd = (int) socket( local_addr.sin_family,
++                                           SOCK_DGRAM, IPPROTO_UDP ) ) < 0 ||
++            setsockopt( bind_ctx->fd, SOL_SOCKET, SO_REUSEADDR,
++                        (const char *) &one, sizeof( one ) ) != 0 )
++        {
++            return( MBEDTLS_ERR_NET_SOCKET_FAILED );
++        }
++#endif
+ 
+         if( bind( bind_ctx->fd, (struct sockaddr *) &local_addr, n ) != 0 )
+         {
+@@ -425,6 +588,7 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+ 
+     if( client_ip != NULL )
+     {
++#if defined(MBEDTLS_HAVE_IPV6)
+         if( client_addr.ss_family == AF_INET )
+         {
+             struct sockaddr_in *addr4 = (struct sockaddr_in *) &client_addr;
+@@ -445,6 +609,14 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+ 
+             memcpy( client_ip, &addr6->sin6_addr.s6_addr, *ip_len);
+         }
++#else
++        *ip_len = sizeof( client_addr.sin_addr.s_addr );
++
++        if( buf_size < *ip_len )
++            return( MBEDTLS_ERR_NET_BUFFER_TOO_SMALL );
++
++        memcpy( client_ip, &client_addr.sin_addr.s_addr, *ip_len );
++#endif /* MBEDTLS_HAVE_IPV6 */
+     }
+ 
+     return( 0 );
+@@ -455,23 +627,23 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
+  */
+ int mbedtls_net_set_block( mbedtls_net_context *ctx )
+ {
+-#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
++#if ( defined(_WIN32) || defined(_WIN32_WCE) || defined(__ICCARM__) || defined(__CC_ARM)  || defined ( __GNUC__ ) ) && !defined(EFIX64) && \
+     !defined(EFI32)
+-    u_long n = 0;
++    unsigned long n = 0;
+     return( ioctlsocket( ctx->fd, FIONBIO, &n ) );
+ #else
+-    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) & ~O_NONBLOCK ) );
++    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL, 0 ) & ~O_NONBLOCK ) );
+ #endif
+ }
+ 
+ int mbedtls_net_set_nonblock( mbedtls_net_context *ctx )
+ {
+-#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
++#if ( defined(_WIN32) || defined(_WIN32_WCE) || defined(__ICCARM__) || defined(__CC_ARM)  || defined ( __GNUC__ ) ) && !defined(EFIX64) && \
+     !defined(EFI32)
+-    u_long n = 1;
++    unsigned long n = 1;
+     return( ioctlsocket( ctx->fd, FIONBIO, &n ) );
+ #else
+-    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) | O_NONBLOCK ) );
++    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL, 0 ) | O_NONBLOCK ) );
+ #endif
+ }
+ 
+@@ -586,13 +758,14 @@ int mbedtls_net_recv( void *ctx, unsigned char *buf, size_t len )
+         if( WSAGetLastError() == WSAECONNRESET )
+             return( MBEDTLS_ERR_NET_CONN_RESET );
+ #else
++#ifdef ERRNO
+         if( errno == EPIPE || errno == ECONNRESET )
+             return( MBEDTLS_ERR_NET_CONN_RESET );
+ 
+         if( errno == EINTR )
+             return( MBEDTLS_ERR_SSL_WANT_READ );
+ #endif
+-
++#endif
+         return( MBEDTLS_ERR_NET_RECV_FAILED );
+     }
+ 
+@@ -633,10 +806,11 @@ int mbedtls_net_recv_timeout( void *ctx, unsigned char *buf,
+         if( WSAGetLastError() == WSAEINTR )
+             return( MBEDTLS_ERR_SSL_WANT_READ );
+ #else
++#ifdef ERRNO
+         if( errno == EINTR )
+             return( MBEDTLS_ERR_SSL_WANT_READ );
+ #endif
+-
++#endif
+         return( MBEDTLS_ERR_NET_RECV_FAILED );
+     }
+ 
+@@ -668,11 +842,13 @@ int mbedtls_net_send( void *ctx, const unsigned char *buf, size_t len )
+         if( WSAGetLastError() == WSAECONNRESET )
+             return( MBEDTLS_ERR_NET_CONN_RESET );
+ #else
++#ifdef ERRNO
+         if( errno == EPIPE || errno == ECONNRESET )
+             return( MBEDTLS_ERR_NET_CONN_RESET );
+ 
+         if( errno == EINTR )
+             return( MBEDTLS_ERR_SSL_WANT_WRITE );
++#endif
+ #endif
+ 
+         return( MBEDTLS_ERR_NET_SEND_FAILED );
+-- 
+2.17.1
+

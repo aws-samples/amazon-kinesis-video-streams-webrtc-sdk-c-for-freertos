@@ -10,3 +10,6 @@
 [submodule "main/lib/usrsctp"]
 	path = main/lib/usrsctp
 	url = https://github.com/sctplab/usrsctp.git
+[submodule "main/lib/mbedtls"]
+	path = main/lib/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git

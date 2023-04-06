@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.6)
 
 project(llhttp LANGUAGES C)
 
+option(KVS_PLAT_ESP_FREERTOS   "Build for ESP FreeRTOS"   OFF)
+option(KVS_PLAT_ANYKE_FREERTOS "Build for ANYKE FreeRTOS" OFF)
 
 # download release tarball of llhttp if it doesn't exist
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -43,4 +45,6 @@ target_link_directories(llhttp PUBLIC
 )
 
 install(TARGETS llhttp DESTINATION lib)
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/llhttp.h DESTINATION include)
+if(NOT KVS_PLAT_ANYKE_FREERTOS)
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/llhttp.h DESTINATION include)
+endif()

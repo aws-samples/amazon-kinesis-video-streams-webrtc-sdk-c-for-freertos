@@ -1,0 +1,47 @@
+#ifndef SRC_C_CMAKE_AWS_CONFIG_H_
+#define SRC_C_CMAKE_AWS_CONFIG_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+#define ENV_DEF_2STR(def_var)  (#def_var)
+
+//APP_WEBRTC_CHANNEL
+#define AWS_WEBRTC_CHANNEL                   @CMake_AWS_WEBRTC_CHANNEL@
+//DEFAULT_REGION_ENV_VAR
+#define AWS_DEFAULT_REGION                   @CMake_AWS_DEFAULT_REGION@
+//CACERT_PATH_ENV_VAR
+#define AWS_KVS_CACERT_PATH                  @CMake_AWS_KVS_CACERT_PATH@
+//ACCESS_KEY_ENV_VAR
+#define AWS_ACCESS_KEY_ID                    @CMake_AWS_ACCESS_KEY_ID@
+//SECRET_KEY_ENV_VAR
+#define AWS_SECRET_ACCESS_KEY                @CMake_AWS_SECRET_ACCESS_KEY@
+//SESSION_TOKEN_ENV_VAR
+#define AWS_SESSION_TOKEN                    @CMake_AWS_SESSION_TOKEN@
+//APP_IOT_CORE_THING_NAME
+#define AWS_IOT_CORE_THING_NAME              @CMake_AWS_IOT_CORE_THING_NAME@
+//APP_IOT_CORE_CREDENTIAL_ENDPOINT
+#define AWS_IOT_CORE_CREDENTIAL_ENDPOINT     @CMake_AWS_IOT_CORE_CREDENTIAL_ENDPOINT@
+//APP_IOT_CORE_CERT
+#define AWS_IOT_CORE_CERT                    @CMake_AWS_IOT_CORE_CERT@
+//APP_IOT_CORE_PRIVATE_KEY
+#define AWS_IOT_CORE_PRIVATE_KEY             @CMake_AWS_IOT_CORE_PRIVATE_KEY@
+//APP_IOT_CORE_ROLE_ALIAS
+#define AWS_IOT_CORE_ROLE_ALIAS              @CMake_AWS_IOT_CORE_ROLE_ALIAS@
+//DEBUG_LOG_LEVEL_ENV_VAR
+#define AWS_KVS_LOG_LEVEL                    @CMake_AWS_KVS_LOG_LEVEL@
+//ENABLE_FILE_LOGGING
+#define AWS_ENABLE_FILE_LOGGING              @CMake_AWS_ENABLE_FILE_LOGGING@
+//DEBUG_LOG_SDP
+#define AWS_DEBUG_LOG_SDP                    @CMake_AWS_DEBUG_LOG_SDP@
+
+
+extern char *aws_env_value_by_key(char *key);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif  // SRC_C_CMAKE_AWS_CONFIG_H_

@@ -28,7 +28,7 @@
 #include "esp_heap_caps.h"
 
 #include "AppMain.h"
-#include "AppMediaSrc_ESP32_FileSrc.h"
+#include "AppMediaSrc_FileSrc.h"
 
 /* The examples use WiFi configuration that you can set via project configuration menu
 
@@ -79,7 +79,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-char* esp_get_ip(void)
+char* app_get_ip(void)
 {
     return wifi_ip;
 }
@@ -268,7 +268,7 @@ void app_main(void)
     setenv("AWS_KVS_LOG_LEVEL", CONFIG_AWS_KVS_LOG_LEVEL, 1);
     setenv("AWS_DEFAULT_REGION", CONFIG_AWS_DEFAULT_REGION, 1);
     setenv("AWS_WEBRTC_CHANNEL", CONFIG_AWS_KVS_CHANNEL, 1);
-    #define IOT_CREDENTIAL (0)
+    #define IOT_CREDENTIAL (1)
     #if (IOT_CREDENTIAL == 0)
     setenv("AWS_ACCESS_KEY_ID", CONFIG_AWS_ACCESS_KEY_ID, 1);
     setenv("AWS_SECRET_ACCESS_KEY", CONFIG_AWS_SECRET_ACCESS_KEY, 1);
