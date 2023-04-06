@@ -1,7 +1,7 @@
-From f563497a9e38ea9f5e95ffb17311d8df230c6eff Mon Sep 17 00:00:00 2001
+From 39ab84477afb324e72cc5529c395402873bee863 Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Mon, 3 Jan 2022 10:29:02 +0800
-Subject: [PATCH] patches for freertos.
+Subject: [PATCH 1/2] patches for freertos.
 
 ---
  CMakeLists.txt          |  4 ++--

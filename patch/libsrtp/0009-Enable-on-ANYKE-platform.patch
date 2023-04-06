@@ -1,0 +1,112 @@
+From 1c15389ffd63d21790be51f227f4a4d308eda774 Mon Sep 17 00:00:00 2001
+From: Lina Chen <chenln1124@thundersoft.com>
+Date: Thu, 6 Apr 2023 13:34:51 +0800
+Subject: [PATCH 9/9] Enable on ANYKE platform.
+
+---
+ CMakeLists.txt             | 24 ++++++++++++++++++------
+ crypto/include/datatypes.h |  2 +-
+ crypto/include/integers.h  |  4 ++++
+ srtp/srtp.c                |  2 +-
+ 4 files changed, 24 insertions(+), 8 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 90c54ce..003138e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -57,7 +57,17 @@ set(ENABLE_OPENSSL OFF CACHE BOOL "Enable OpenSSL crypto engine")
+ set(ENABLE_MBEDTLS ON CACHE BOOL "Enable MbedTLS crypto engine")
+ set(TEST_APPS OFF CACHE BOOL "Build test applications")
+ option(BUILD_SHARED_LIBS "Build shared library" OFF)
+-option(KVS_PLAT_ESP_FREERTOS "Build for ESP FreeRTOS" OFF)
++
++option(KVS_PLAT_ESP_FREERTOS   "Build for ESP FreeRTOS"   OFF)
++option(KVS_PLAT_ANYKE_FREERTOS "Build for ANYKE FreeRTOS" OFF)
++
++if(KVS_PLAT_ESP_FREERTOS)
++  add_definitions(-DKVS_PLAT_ESP_FREERTOS)
++endif()
++
++if(KVS_PLAT_ANYKE_FREERTOS)
++  add_definitions(-DKVS_PLAT_ANYKE_FREERTOS)
++endif()
+ 
+ if(ENABLE_OPENSSL AND ENABLE_MBEDTLS)
+   message(FATAL_ERROR "ssl conflict. can not enable openssl and mbedtls simultaneously.")
+@@ -71,7 +81,7 @@ if(ENABLE_OPENSSL)
+ endif()
+ 
+ if(ENABLE_MBEDTLS)
+-  if(NOT KVS_PLAT_ESP_FREERTOS)
++  if(NOT KVS_PLAT_ESP_FREERTOS AND NOT KVS_PLAT_ANYKE_FREERTOS)
+     find_package(MbedTLS REQUIRED)
+   endif()
+   include_directories(${MBEDTLS_INCLUDE_DIRS})
+@@ -212,10 +222,12 @@ if(WIN32)
+ endif()
+ 
+ install(TARGETS srtp2 DESTINATION lib)
+-install(FILES include/srtp.h crypto/include/auth.h
+-  crypto/include/cipher.h
+-  crypto/include/cipher_types.h
+-  DESTINATION include/srtp2)
++if(NOT KVS_PLAT_ANYKE_FREERTOS)
++  install(FILES include/srtp.h crypto/include/auth.h
++    crypto/include/cipher.h
++    crypto/include/cipher_types.h
++    DESTINATION include/srtp2)
++endif()
+ 
+ if(TEST_APPS)
+   enable_testing()
+diff --git a/crypto/include/datatypes.h b/crypto/include/datatypes.h
+index 0037968..f5f79f9 100644
+--- a/crypto/include/datatypes.h
++++ b/crypto/include/datatypes.h
+@@ -59,7 +59,7 @@
+ #elif defined HAVE_WINSOCK2_H
+ #include <winsock2.h>
+ #else
+-#ifdef KVS_PLAT_ESP_FREERTOS
++#if defined (KVS_PLAT_ESP_FREERTOS) || defined (KVS_PLAT_ANYKE_FREERTOS)
+ #include <lwip/def.h>
+ #else
+ #error "Platform not recognized"
+diff --git a/crypto/include/integers.h b/crypto/include/integers.h
+index f2cd7c0..a9f4e68 100644
+--- a/crypto/include/integers.h
++++ b/crypto/include/integers.h
+@@ -81,6 +81,9 @@ typedef unsigned long long uint64_t;
+ #endif
+ #endif
+ 
++#if defined (KVS_PLAT_ANYKE_FREERTOS)
++typedef unsigned int size_t;
++#else
+ /* Reasonable defaults for 32 bit machines - you may need to
+  * edit these definitions for your own machine. */
+ #ifndef HAVE_UINT8_T
+@@ -103,6 +106,7 @@ extern uint64_t make64(uint32_t high, uint32_t low);
+ extern uint32_t high32(uint64_t value);
+ extern uint32_t low32(uint64_t value);
+ #endif
++#endif
+ 
+ /* These macros are to load and store 32-bit values from un-aligned
+    addresses.  This is required for processors that do not allow unaligned
+diff --git a/srtp/srtp.c b/srtp/srtp.c
+index eff328f..2bc6263 100644
+--- a/srtp/srtp.c
++++ b/srtp/srtp.c
+@@ -2928,7 +2928,7 @@ srtp_err_status_t srtp_create(srtp_t *session, /* handle for session     */
+     return srtp_err_status_ok;
+ }
+ 
+-srtp_err_status_t srtp_remove_stream(srtp_t session, uint32_t ssrc)
++srtp_err_status_t srtp_remove_stream(srtp_t session, unsigned int ssrc)
+ {
+     srtp_stream_ctx_t *stream, *last_stream;
+     srtp_err_status_t status;
+-- 
+2.17.1
+

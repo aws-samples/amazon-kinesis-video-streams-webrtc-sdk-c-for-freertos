@@ -1,0 +1,58 @@
+From 3802b47aed3e622558802d3f91d22fc79e4a886a Mon Sep 17 00:00:00 2001
+From: Lina Chen <chenln1124@thundersoft.com>
+Date: Thu, 6 Apr 2023 13:36:37 +0800
+Subject: [PATCH 2/2] Enable on ANYKE platform.
+
+---
+ CMakeLists.txt     | 7 +++++--
+ lib/CMakeLists.txt | 8 +++++---
+ 2 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9d5320b..c7f2172 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -14,10 +14,13 @@ project(wslay)
+ 
+ option(WSLAY_CONFIGURE_INSTALL "Generate install target" ON)
+ option(WSLAY_STATIC "Build static version of the library" ON)
+-option(WSLAY_SHARED "Build shared version of the library" ON)
++option(WSLAY_SHARED "Build shared version of the library" OFF)
+ option(WSLAY_EXAMPLES "Build examples" OFF)
+ option(WSLAY_TESTS "Build tests" OFF)
+ 
++option(KVS_PLAT_ESP_FREERTOS   "Build for ESP FreeRTOS"   OFF)
++option(KVS_PLAT_ANYKE_FREERTOS "Build for ANYKE FreeRTOS" OFF)
++
+ add_subdirectory(lib)
+ if(WSLAY_EXAMPLES)
+ 	add_subdirectory(examples)
+@@ -27,7 +30,7 @@ if(WSLAY_TESTS)
+ 	add_subdirectory(tests)
+ endif()
+ 
+-if (WSLAY_CONFIGURE_INSTALL)
++if (WSLAY_CONFIGURE_INSTALL AND NOT KVS_PLAT_ANYKE_FREERTOS)
+ 	include(GNUInstallDirs)
+ 	set(INSTALL_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/wslay)
+ 	install(TARGETS wslay
+diff --git a/lib/CMakeLists.txt b/lib/CMakeLists.txt
+index ba24310..ff4c715 100644
+--- a/lib/CMakeLists.txt
++++ b/lib/CMakeLists.txt
+@@ -60,7 +60,9 @@ if(WSLAY_CONFIGURE_INSTALL)
+ 		INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+ 		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+ 		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+-	install(DIRECTORY ${INCLUDE_DIR}/ ${GEN_INCLUDE_DIR}/
+-		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+-		FILES_MATCHING PATTERN "*.h")
++	if(NOT KVS_PLAT_ANYKE_FREERTOS)
++		install(DIRECTORY ${INCLUDE_DIR}/ ${GEN_INCLUDE_DIR}/
++			DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
++			FILES_MATCHING PATTERN "*.h")
++	endif()
+ endif()
+-- 
+2.17.1
+

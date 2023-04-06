@@ -1,7 +1,7 @@
-From a48c6cdf42fb342f607e71f7b52a4b0add14fbae Mon Sep 17 00:00:00 2001
+From 9c419054479cde531203a62d1014ced348e01e70 Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Wed, 5 May 2021 11:17:39 +0800
-Subject: [PATCH 5/6] add the name and size of threads.
+Subject: [PATCH 5/7] add the name and size of threads.
 
 ---
  usrsctplib/CMakeLists.txt              |  1 +

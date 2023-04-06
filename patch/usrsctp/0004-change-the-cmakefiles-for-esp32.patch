@@ -1,7 +1,7 @@
-From 492e5223c4b0a9e78f247817ff75a99e8069f314 Mon Sep 17 00:00:00 2001
+From c1fbdc20188522345cede232b97af33db0386667 Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Tue, 4 May 2021 11:38:40 +0800
-Subject: [PATCH 4/6] change the cmakefiles for esp32.
+Subject: [PATCH 4/7] change the cmakefiles for esp32.
 
 ---
  CMakeLists.txt            | 6 ++++++

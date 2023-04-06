@@ -1,7 +1,7 @@
-From 3f63b63761a4fa6eec5ac9ec336c760de2abc9ad Mon Sep 17 00:00:00 2001
+From 08f50210df9a4eced1736748bb72ba99e51d1fd4 Mon Sep 17 00:00:00 2001
 From: ycyang <yc.yang1229@gmail.com>
 Date: Fri, 8 Jan 2021 18:37:06 +0800
-Subject: [PATCH 6/8] remove the wordy define.
+Subject: [PATCH 6/9] remove the wordy define.
 
 ---
  crypto/include/cipher_types.h | 10 ++--------
