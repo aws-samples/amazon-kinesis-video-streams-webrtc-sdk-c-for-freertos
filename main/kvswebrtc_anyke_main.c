@@ -63,7 +63,7 @@ static void *webrtc_test_thread(void *argv)
 
 static int webrtc_test(int argc, char **argv)
 {
-    printf("enter %s\n", __func__);
+    printf("enter %s,build time(%s)\n", __func__, V_BUILD_TIME);
 
     //create thread for webrtc test
     pthread_t tid;

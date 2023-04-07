@@ -37,6 +37,7 @@ extern "C" {
 //DEBUG_LOG_SDP
 #define AWS_DEBUG_LOG_SDP                    @CMake_AWS_DEBUG_LOG_SDP@
 
+#define V_BUILD_TIME                         "@build_time@"
 
 extern char *aws_env_value_by_key(char *key);
 

@@ -108,6 +108,7 @@ if (KVS_PLAT_ANYKE_FREERTOS)
 	add_definitions(-DISP_QUICK_START_ENABLE)
 	add_definitions(-D__CHIP_AK3918AV100_SERIES)
 	add_definitions(-DMACH_AK3918AV100)
+	add_definitions(-DMBEDTLS_CONFIG_FILE="mbedtls/anyke_config.h")
 endif()
 
 if (ENABLE_STREAMING)
@@ -160,13 +161,6 @@ endif()
 
 if (KVS_PLAT_ANYKE_FREERTOS)
 	message("############################## start mbedtls ##############################")
-	if(ENABLE_MBEDTLS_V3)
-	    set(MBEDTLS_VERSION "3.2.1")
-	    add_definitions(-DENABLE_MBEDTLS_V3)
-	else()
-	    set(MBEDTLS_VERSION "2.16.6")
-	    add_definitions(-DENABLE_MBEDTLS_V2_16_6)
-	endif()
 	add_subdirectory(lib/mbedtls)
 	set_property(TARGET mbedtls APPEND PROPERTY LINK_LIBRARIES
 	        ${nvs_flash_lib}
@@ -175,7 +169,9 @@ if (KVS_PLAT_ANYKE_FREERTOS)
 	        ${nvs_flash_lib}
 	        ${mbedtls_lib})
 	target_link_libraries(${COMPONENT_LIB} PUBLIC mbedtls)
-	set(KVS_LIBMBEDTLS_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/main/lib/mbedtls/lib/includes" "${LIB_SOURCE_DIR}/mbedtls/include")
+	set(KVS_LIBMBEDTLS_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/main/lib/mbedtls/vendor/anyke/mbedtls/lib/includes"
+                                "${LIB_SOURCE_DIR}/mbedtls/vendor/anyke/mbedtls/include"
+                                "${LIB_SOURCE_DIR}/mbedtls/vendor/anyke/port/include")
 	set(MBEDTLS_INCLUDE_DIRS "${KVS_LIBMBEDTLS_INCLUDE_DIRS}")
 endif()
 

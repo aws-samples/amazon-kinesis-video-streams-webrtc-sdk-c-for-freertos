@@ -1,5 +1,7 @@
 message("Config! Here is app config aws client info .cmake\n")
 
+string(TIMESTAMP COMPILE_TIME %Y%m%d_%H%M%S)
+set(build_time ${COMPILE_TIME})
 
 
 
