@@ -13,3 +13,6 @@
 [submodule "main/lib/mbedtls/vendor/anyke/mbedtls"]
 	path = main/lib/mbedtls/vendor/anyke/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
+[submodule "main/lib/mbedtls/mbedtls"]
+	path = main/lib/mbedtls/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git

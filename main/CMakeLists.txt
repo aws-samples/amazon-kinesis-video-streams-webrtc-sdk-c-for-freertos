@@ -169,8 +169,8 @@ if (KVS_PLAT_ANYKE_FREERTOS)
 	        ${nvs_flash_lib}
 	        ${mbedtls_lib})
 	target_link_libraries(${COMPONENT_LIB} PUBLIC mbedtls)
-	set(KVS_LIBMBEDTLS_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/main/lib/mbedtls/vendor/anyke/mbedtls/lib/includes"
-                                "${LIB_SOURCE_DIR}/mbedtls/vendor/anyke/mbedtls/include"
+	set(KVS_LIBMBEDTLS_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/main/lib/mbedtls/mbedtls/lib/includes"
+                                "${LIB_SOURCE_DIR}/mbedtls/mbedtls/include"
                                 "${LIB_SOURCE_DIR}/mbedtls/vendor/anyke/port/include")
 	set(MBEDTLS_INCLUDE_DIRS "${KVS_LIBMBEDTLS_INCLUDE_DIRS}")
 endif()
