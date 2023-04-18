@@ -47,7 +47,13 @@ STATUS app_signaling_queryServer(PAppSignaling pAppSignaling, PRtcIceServer pIce
     *pServerNum = 0;
 
     // Set the  STUN server
-    SNPRINTF(pIceServer[0].urls, MAX_ICE_CONFIG_URI_LEN, KINESIS_VIDEO_STUN_URL, pAppSignaling->channelInfo.pRegion);
+    PCHAR pKinesisVideoStunUrlPostFix = KINESIS_VIDEO_STUN_URL_POSTFIX;
+    // If region is in CN, add CN region uri postfix
+    if (STRSTR(pAppSignaling->channelInfo.pRegion, "cn-")) {
+        pKinesisVideoStunUrlPostFix = KINESIS_VIDEO_STUN_URL_POSTFIX_CN;
+    }
+    SNPRINTF(pIceServer[0].urls, MAX_ICE_CONFIG_URI_LEN, KINESIS_VIDEO_STUN_URL, pAppSignaling->channelInfo.pRegion,
+             pKinesisVideoStunUrlPostFix);
     *pServerNum = 1;
 
     if (pAppSignaling->useTurn) {
