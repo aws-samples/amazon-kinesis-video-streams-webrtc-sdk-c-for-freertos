@@ -1,7 +1,7 @@
-From 62033eec57345e31c81ae7a858339a2c89eb1081 Mon Sep 17 00:00:00 2001
+From 72743bc4f52a1e4219c7844af44a8be4a31bd66f Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Thu, 29 Apr 2021 17:23:05 +0800
-Subject: [PATCH 1/6] add lwip support.
+Subject: [PATCH 1/7] add lwip support.
 
 ---
  CMakeLists.txt                         |  12 +-
@@ -2089,5 +2089,5 @@ index fea2aaf..0e3012f 100644
  	uint8_t sconn_len;
  	uint8_t sconn_family;
 -- 
-2.17.1
+2.34.1
 

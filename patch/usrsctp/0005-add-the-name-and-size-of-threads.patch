@@ -1,7 +1,7 @@
-From a48c6cdf42fb342f607e71f7b52a4b0add14fbae Mon Sep 17 00:00:00 2001
+From 42d8b37dda2c817db0b626f6b8ea9f362c929439 Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Wed, 5 May 2021 11:17:39 +0800
-Subject: [PATCH 5/6] add the name and size of threads.
+Subject: [PATCH 5/7] add the name and size of threads.
 
 ---
  usrsctplib/CMakeLists.txt              |  1 +
@@ -365,5 +365,5 @@ index 5848e94..cc912cb 100755
  #if defined(_WIN32)
  			closesocket(SCTP_BASE_VAR(userspace_udpsctp6));
 -- 
-2.17.1
+2.34.1
 
