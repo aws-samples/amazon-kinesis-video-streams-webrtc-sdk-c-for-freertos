@@ -23,7 +23,7 @@ extern "C" {
 #include "AppError.h"
 #include "AppCredential.h"
 
-typedef struct __AppSignaling{
+typedef struct __AppSignaling {
     PAppCredential pAppCredential; //!< the context of credential
     SIGNALING_CLIENT_HANDLE signalingClientHandle;
     SignalingClientCallbacks signalingClientCallbacks;
@@ -45,7 +45,7 @@ typedef struct __AppSignaling{
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
 STATUS app_signaling_init(PAppSignaling pAppSignaling, SignalingClientMessageReceivedFunc onMessageReceived,
-                        SignalingClientStateChangedFunc onStateChanged, SignalingClientErrorReportFunc pOnError, UINT64 udata, BOOL useTurn);
+                          SignalingClientStateChangedFunc onStateChanged, SignalingClientErrorReportFunc pOnError, UINT64 udata, BOOL useTurn);
 /**
  * @brief   initialize the context of app signaling
  *
@@ -72,6 +72,11 @@ STATUS app_signaling_queryServer(PAppSignaling pAppSignaling, PRtcIceServer pIce
  * @return STATUS code of the execution. STATUS_SUCCESS on success
  */
 STATUS app_signaling_connect(PAppSignaling pAppSignaling);
+STATUS app_signaling_fetch(PAppSignaling pAppSignaling);
+
+STATUS app_signaling_create(PAppSignaling pAppSignaling);
+
+STATUS app_signaling_shutdown(PAppSignaling pAppSignaling);
 /**
  * @brief   connect to the signaling server
  *
