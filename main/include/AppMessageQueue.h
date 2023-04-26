@@ -102,7 +102,7 @@ STATUS app_msg_q_createConnectionMsqQ(PConnectionMsgQ* ppConnectionMsgQ);
  *
  * @return STATUS code of the execution. STATUS_SUCCESS on success.
  */
-STATUS app_msg_q_getPendingMsgQByHashVal(PConnectionMsgQ pConnectionMsgQ, UINT64 clientHash, BOOL remove, PPendingMessageQueue *ppPendingMsgQ);
+STATUS app_msg_q_getPendingMsgQByHashVal(PConnectionMsgQ pConnectionMsgQ, UINT64 clientHash, BOOL remove, PPendingMessageQueue* ppPendingMsgQ);
 /**
  * @brief remove all the expired pending message queues.
  *

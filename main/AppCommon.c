@@ -27,7 +27,7 @@
 #include "crc32.h"
 
 static PAppConfiguration gAppConfiguration = NULL; //!< for the system-level signal handler
-static BOOL gInitialized = FALSE; //!< for the system-level signal handler
+static BOOL gInitialized = FALSE;                  //!< for the system-level signal handler
 
 STATUS app_common_createStreamingSession(PAppConfiguration pAppConfiguration, PCHAR peerId, PStreamingSession* ppStreamingSession);
 STATUS app_common_freeStreamingSession(PStreamingSession* ppStreamingSession);
@@ -108,13 +108,13 @@ static VOID app_common_onConnectionStateChange(UINT64 userData, RTC_PEER_CONNECT
             }
             break;
         case RTC_PEER_CONNECTION_STATE_FAILED:
-            // explicit fallthrough
+        // explicit fallthrough
         case RTC_PEER_CONNECTION_STATE_CLOSED:
-            // explicit fallthrough
+        // explicit fallthrough
         case RTC_PEER_CONNECTION_STATE_DISCONNECTED:
             ATOMIC_STORE_BOOL(&pStreamingSession->terminateFlag, TRUE);
             CVAR_BROADCAST(pAppConfiguration->cvar);
-            // explicit fallthrough
+        // explicit fallthrough
         default:
             ATOMIC_STORE_BOOL(&pAppConfiguration->peerConnectionConnected, FALSE);
             CVAR_BROADCAST(pAppConfiguration->cvar);
@@ -133,7 +133,7 @@ static STATUS app_common_onSignalingClientStateChanged(UINT64 userData, SIGNALIN
     PCHAR pStateStr;
 
     signaling_client_getStateString(state, &pStateStr);
-    DLOGD("Signaling client state changed to %d - '%s'", state, pStateStr);
+    DLOGI("Signaling client state changed to %d - '%s'", state, pStateStr);
 
     // Return success to continue
     return retStatus;
@@ -160,7 +160,7 @@ static VOID app_common_onBandwidthEstimation(UINT64 userData, DOUBLE maxiumBitra
 }
 
 static VOID app_common_onSenderBandwidthEstimation(UINT64 userData, UINT32 txBytes, UINT32 rxBytes, UINT32 txPacketsCnt, UINT32 rxPacketsCnt,
-                                               UINT64 duration)
+                                                   UINT64 duration)
 {
     UNUSED_PARAM(userData);
     UNUSED_PARAM(duration);
@@ -212,7 +212,7 @@ static STATUS app_common_respondWithAnswer(PStreamingSession pStreamingSession)
     STRNCPY(pMessage->peerClientId, pStreamingSession->peerId, MAX_SIGNALING_CLIENT_ID_LEN);
     pMessage->payloadLen = (UINT32) STRLEN(pMessage->payload);
     pMessage->correlationId[0] = '\0';
-    
+
     CHK_STATUS((app_signaling_sendMsg(&pStreamingSession->pAppConfiguration->appSignaling, pMessage)));
 
 CleanUp:
@@ -228,7 +228,8 @@ static STATUS app_common_handleOffer(PAppConfiguration pAppConfiguration, PStrea
     NullableBool canTrickle;
     BOOL mediaThreadStarted;
 
-    CHK(NULL != (pOfferSessionDescriptionInit = (PRtcSessionDescriptionInit) MEMCALLOC(1, SIZEOF(RtcSessionDescriptionInit))), STATUS_APP_COMMON_NOT_ENOUGH_MEMORY);
+    CHK(NULL != (pOfferSessionDescriptionInit = (PRtcSessionDescriptionInit) MEMCALLOC(1, SIZEOF(RtcSessionDescriptionInit))),
+        STATUS_APP_COMMON_NOT_ENOUGH_MEMORY);
     MEMSET(&pStreamingSession->answerSessionDescriptionInit, 0x00, SIZEOF(RtcSessionDescriptionInit));
 
     CHK_STATUS((sdp_deserializeInit(pSignalingMessage->payload, pSignalingMessage->payloadLen, pOfferSessionDescriptionInit)));
@@ -248,14 +249,15 @@ static STATUS app_common_handleOffer(PAppConfiguration pAppConfiguration, PStrea
 
     mediaThreadStarted = ATOMIC_EXCHANGE_BOOL(&pAppConfiguration->mediaThreadStarted, TRUE);
     if (!mediaThreadStarted) {
-        THREAD_CREATE_EX(&pAppConfiguration->mediaControlTid, APP_MEDIA_CONTROL_THREAD_NAME, APP_MEDIA_CONTROL_THREAD_SIZE, TRUE, app_common_runMediaSource, (PVOID) pAppConfiguration);
-    }else{
+        THREAD_CREATE_EX(&pAppConfiguration->mediaControlTid, APP_MEDIA_CONTROL_THREAD_NAME, APP_MEDIA_CONTROL_THREAD_SIZE, TRUE,
+                         app_common_runMediaSource, (PVOID) pAppConfiguration);
+    } else {
         DLOGD("The media source is started");
     }
 
     // The audio video receive routine should be per streaming session
 #ifdef ENABLE_AUDIO_SENDRECV
-	app_media_sink_onFrame(pStreamingSession);
+    app_media_sink_onFrame(pStreamingSession);
 #endif
 
 CleanUp:
@@ -323,14 +325,14 @@ static STATUS app_common_onIceCandidatePairStats(UINT32 timerId, UINT64 currentT
     pRtcMetrics->requestedTypeOfStats = RTC_STATS_TYPE_CANDIDATE_PAIR;
 
     // We need to execute this under the object lock due to race conditions that it could pose
-    CHK_WARN(MUTEX_WAITLOCK(pAppConfiguration->appConfigurationObjLock, 50*HUNDREDS_OF_NANOS_IN_A_MILLISECOND) == TRUE, STATUS_APP_COMMON_ACQUIRE_MUTEX, "app_common_onIceCandidatePairStats failed");
+    CHK_WARN(MUTEX_WAITLOCK(pAppConfiguration->appConfigurationObjLock, 50 * HUNDREDS_OF_NANOS_IN_A_MILLISECOND) == TRUE,
+             STATUS_APP_COMMON_ACQUIRE_MUTEX, "app_common_onIceCandidatePairStats failed");
     locked = TRUE;
 
     for (i = 0; i < pAppConfiguration->streamingSessionCount; ++i) {
-        if (STATUS_SUCCEEDED(
-                metrics_get(pAppConfiguration->streamingSessionList[i]->pPeerConnection, NULL, pRtcMetrics))) {
-            currentMeasureDuration = (pRtcMetrics->timestamp - pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevTs) /
-                HUNDREDS_OF_NANOS_IN_A_SECOND;
+        if (STATUS_SUCCEEDED(metrics_get(pAppConfiguration->streamingSessionList[i]->pPeerConnection, NULL, pRtcMetrics))) {
+            currentMeasureDuration =
+                (pRtcMetrics->timestamp - pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevTs) / HUNDREDS_OF_NANOS_IN_A_SECOND;
             DLOGD("Current duration: %" PRIu64 " seconds", currentMeasureDuration);
 
             if (currentMeasureDuration > 0) {
@@ -338,39 +340,37 @@ static STATUS app_common_onIceCandidatePairStats(UINT32 timerId, UINT64 currentT
                 DLOGD("Selected remote candidate ID: %s", pRtcMetrics->rtcStatsObject.iceCandidatePairStats.remoteCandidateId);
                 // TODO: Display state as a string for readability
                 DLOGD("Ice Candidate Pair state: %d", pRtcMetrics->rtcStatsObject.iceCandidatePairStats.state);
-                DLOGD("Nomination state: %s",
-                      pRtcMetrics->rtcStatsObject.iceCandidatePairStats.nominated ? "nominated" : "not nominated");
+                DLOGD("Nomination state: %s", pRtcMetrics->rtcStatsObject.iceCandidatePairStats.nominated ? "nominated" : "not nominated");
                 averageNumberOfPacketsSentPerSecond =
-                    (DOUBLE)(pRtcMetrics->rtcStatsObject.iceCandidatePairStats.packetsSent -
-                             pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevNumberOfPacketsSent) /
+                    (DOUBLE) (pRtcMetrics->rtcStatsObject.iceCandidatePairStats.packetsSent -
+                              pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevNumberOfPacketsSent) /
                     (DOUBLE) currentMeasureDuration;
                 DLOGD("Packet send rate: %lf pkts/sec", averageNumberOfPacketsSentPerSecond);
 
                 averageNumberOfPacketsReceivedPerSecond =
-                    (DOUBLE)(pRtcMetrics->rtcStatsObject.iceCandidatePairStats.packetsReceived -
-                             pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevNumberOfPacketsReceived) /
+                    (DOUBLE) (pRtcMetrics->rtcStatsObject.iceCandidatePairStats.packetsReceived -
+                              pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevNumberOfPacketsReceived) /
                     (DOUBLE) currentMeasureDuration;
                 DLOGD("Packet receive rate: %lf pkts/sec", averageNumberOfPacketsReceivedPerSecond);
 
-                outgoingBitrate = (DOUBLE)((pRtcMetrics->rtcStatsObject.iceCandidatePairStats.bytesSent -
-                                            pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevNumberOfBytesSent) *
-                                           8.0) /
+                outgoingBitrate = (DOUBLE) ((pRtcMetrics->rtcStatsObject.iceCandidatePairStats.bytesSent -
+                                             pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevNumberOfBytesSent) *
+                                            8.0) /
                     currentMeasureDuration;
                 DLOGD("Outgoing bit rate: %lf bps", outgoingBitrate);
 
-                incomingBitrate = (DOUBLE)((pRtcMetrics->rtcStatsObject.iceCandidatePairStats.bytesReceived -
-                                            pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevNumberOfBytesReceived) *
-                                           8.0) /
+                incomingBitrate = (DOUBLE) ((pRtcMetrics->rtcStatsObject.iceCandidatePairStats.bytesReceived -
+                                             pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevNumberOfBytesReceived) *
+                                            8.0) /
                     currentMeasureDuration;
                 DLOGD("Incoming bit rate: %lf bps", incomingBitrate);
 
-                averagePacketsDiscardedOnSend = (DOUBLE)(pRtcMetrics->rtcStatsObject.iceCandidatePairStats.packetsDiscardedOnSend -
-                                                         pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevPacketsDiscardedOnSend) /
+                averagePacketsDiscardedOnSend = (DOUBLE) (pRtcMetrics->rtcStatsObject.iceCandidatePairStats.packetsDiscardedOnSend -
+                                                          pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevPacketsDiscardedOnSend) /
                     (DOUBLE) currentMeasureDuration;
                 DLOGD("Packet discard rate: %lf pkts/sec", averagePacketsDiscardedOnSend);
 
-                DLOGD("Current STUN request round trip time: %lf sec",
-                      pRtcMetrics->rtcStatsObject.iceCandidatePairStats.currentRoundTripTime);
+                DLOGD("Current STUN request round trip time: %lf sec", pRtcMetrics->rtcStatsObject.iceCandidatePairStats.currentRoundTripTime);
                 DLOGD("Number of STUN responses received: %llu", pRtcMetrics->rtcStatsObject.iceCandidatePairStats.responsesReceived);
 
                 pAppConfiguration->streamingSessionList[i]->rtcMetricsHistory.prevTs = pRtcMetrics->timestamp;
@@ -440,10 +440,12 @@ static STATUS app_common_onSignalingMessageReceived(UINT64 userData, PReceivedSi
                 // Need to remove the pending queue if any.
                 // This is a simple optimization as the session cleanup will
                 // handle the cleanup of pending message queue after a while
-                CHK_STATUS((app_msg_q_getPendingMsgQByHashVal(pAppConfiguration->pRemotePeerPendingSignalingMessages, clientIdHashKey, TRUE, &pPendingMsgQ)));
+                CHK_STATUS((
+                    app_msg_q_getPendingMsgQByHashVal(pAppConfiguration->pRemotePeerPendingSignalingMessages, clientIdHashKey, TRUE, &pPendingMsgQ)));
                 CHK(FALSE, retStatus);
             }
-            CHK_STATUS((app_common_createStreamingSession(pAppConfiguration, pReceivedSignalingMessage->signalingMessage.peerClientId, &pStreamingSession)));
+            CHK_STATUS(
+                (app_common_createStreamingSession(pAppConfiguration, pReceivedSignalingMessage->signalingMessage.peerClientId, &pStreamingSession)));
             pStreamingSession->offerReceiveTime = GETTIME();
             MUTEX_LOCK(pAppConfiguration->streamingSessionListReadLock);
             pAppConfiguration->streamingSessionList[pAppConfiguration->streamingSessionCount++] = pStreamingSession;
@@ -453,7 +455,8 @@ static STATUS app_common_onSignalingMessageReceived(UINT64 userData, PReceivedSi
             CHK_STATUS((hash_table_put(pAppConfiguration->pRemoteRtcPeerConnections, clientIdHashKey, (UINT64) pStreamingSession)));
 
             // If there are any ice candidate messages in the queue for this client id, submit them now.
-            CHK_STATUS((app_msg_q_getPendingMsgQByHashVal(pAppConfiguration->pRemotePeerPendingSignalingMessages, clientIdHashKey, TRUE, &pPendingMsgQ)));
+            CHK_STATUS(
+                (app_msg_q_getPendingMsgQByHashVal(pAppConfiguration->pRemotePeerPendingSignalingMessages, clientIdHashKey, TRUE, &pPendingMsgQ)));
             CHK_STATUS((app_msg_q_handlePendingMsgQ(pPendingMsgQ, app_common_handleRemoteCandidate, pStreamingSession)));
 
             startStats = pAppConfiguration->iceCandidatePairStatsTimerId == MAX_UINT32;
@@ -465,7 +468,8 @@ static STATUS app_common_onSignalingMessageReceived(UINT64 userData, PReceivedSi
              * submit the signaling message into the corresponding streaming session.
              */
             if (!peerConnectionFound) {
-                CHK_STATUS((app_msg_q_getPendingMsgQByHashVal(pAppConfiguration->pRemotePeerPendingSignalingMessages, clientIdHashKey, FALSE, &pPendingMsgQ)));
+                CHK_STATUS((app_msg_q_getPendingMsgQByHashVal(pAppConfiguration->pRemotePeerPendingSignalingMessages, clientIdHashKey, FALSE,
+                                                              &pPendingMsgQ)));
 
                 if (pPendingMsgQ == NULL) {
                     CHK_STATUS((app_msg_q_createPendingMsgQ(pAppConfiguration->pRemotePeerPendingSignalingMessages, clientIdHashKey, &pPendingMsgQ)));
@@ -516,13 +520,14 @@ static STATUS app_common_pregenerateCertTimerCallback(UINT32 timerId, UINT64 cur
     PAppConfiguration pAppConfiguration = (PAppConfiguration) userData;
 
     CHK_WARN(pAppConfiguration != NULL, STATUS_APP_COMMON_NULL_ARG, "app_common_pregenerateCertTimerCallback(): Passed argument is NULL");
-    CHK_WARN(MUTEX_WAITLOCK(pAppConfiguration->appConfigurationObjLock, 50*HUNDREDS_OF_NANOS_IN_A_MILLISECOND) == TRUE, STATUS_APP_COMMON_ACQUIRE_MUTEX, "app_common_pregenerateCertTimerCallback failed");
+    CHK_WARN(MUTEX_WAITLOCK(pAppConfiguration->appConfigurationObjLock, 50 * HUNDREDS_OF_NANOS_IN_A_MILLISECOND) == TRUE,
+             STATUS_APP_COMMON_ACQUIRE_MUTEX, "app_common_pregenerateCertTimerCallback failed");
     locked = TRUE;
 
     app_credential_generateCertRoutine(&pAppConfiguration->appCredential);
 
 CleanUp:
-    if(locked == TRUE){
+    if (locked == TRUE) {
         MUTEX_UNLOCK(pAppConfiguration->appConfigurationObjLock);
     }
     return retStatus;
@@ -539,7 +544,8 @@ PVOID app_common_runMediaSource(PVOID userData)
     ATOMIC_STORE_BOOL(&pAppConfiguration->abortMediaControl, FALSE);
 
     MUTEX_LOCK(pAppConfiguration->appConfigurationObjLock);
-    while (!ATOMIC_LOAD_BOOL(&pAppConfiguration->peerConnectionConnected) && !ATOMIC_LOAD_BOOL(&pAppConfiguration->terminateApp) && !ATOMIC_LOAD_BOOL(&pAppConfiguration->abortMediaControl)) {
+    while (!ATOMIC_LOAD_BOOL(&pAppConfiguration->peerConnectionConnected) && !ATOMIC_LOAD_BOOL(&pAppConfiguration->terminateApp) &&
+           !ATOMIC_LOAD_BOOL(&pAppConfiguration->abortMediaControl)) {
         CVAR_WAIT(pAppConfiguration->cvar, pAppConfiguration->appConfigurationObjLock, 5 * HUNDREDS_OF_NANOS_IN_A_SECOND);
     }
     MUTEX_UNLOCK(pAppConfiguration->appConfigurationObjLock);
@@ -653,8 +659,8 @@ STATUS app_common_createStreamingSession(PAppConfiguration pAppConfiguration, PC
     CHK_STATUS(
         (pc_addTransceiver(pStreamingSession->pPeerConnection, pVideoTrack, &videoRtpTransceiverInit, &pStreamingSession->pVideoRtcRtpTransceiver)));
 
-    CHK_STATUS(
-        (rtp_transceiver_onBandwidthEstimation(pStreamingSession->pVideoRtcRtpTransceiver, (UINT64) pStreamingSession, app_common_onBandwidthEstimation)));
+    CHK_STATUS((rtp_transceiver_onBandwidthEstimation(pStreamingSession->pVideoRtcRtpTransceiver, (UINT64) pStreamingSession,
+                                                      app_common_onBandwidthEstimation)));
 
     // Add a SendRecv Transceiver of type audio
     //CHK_STATUS((pAppMediaSrc->app_media_source_queryAudioCap(pAppConfiguration->pMediaContext, &codec)));
@@ -704,8 +710,9 @@ STATUS app_common_freeStreamingSession(PStreamingSession* ppStreamingSession)
     PStreamingSession pStreamingSession = NULL;
     PAppConfiguration pAppConfiguration;
 
+    CHK(ppStreamingSession != NULL, STATUS_APP_COMMON_NULL_ARG);
     pStreamingSession = *ppStreamingSession;
-    CHK(pStreamingSession->pAppConfiguration != NULL, STATUS_APP_COMMON_NULL_ARG);
+    CHK(pStreamingSession != NULL && pStreamingSession->pAppConfiguration != NULL, STATUS_APP_COMMON_NULL_ARG);
     pAppConfiguration = pStreamingSession->pAppConfiguration;
 
     DLOGD("Freeing streaming session with peer id: %s ", pStreamingSession->peerId);
@@ -716,18 +723,18 @@ STATUS app_common_freeStreamingSession(PStreamingSession* ppStreamingSession)
     // NOTE: we need to perform this under the lock which might be acquired by
     // the running thread but it's OK as it's re-entrant
     MUTEX_LOCK(pAppConfiguration->appConfigurationObjLock);
-    if (pAppConfiguration->iceCandidatePairStatsTimerId != MAX_UINT32 && pAppConfiguration->streamingSessionCount == 0) {
+    if (pAppConfiguration->iceCandidatePairStatsTimerId != MAX_UINT32 && pAppConfiguration->streamingSessionCount == 0 && IS_VALID_TIMER_QUEUE_HANDLE(pAppConfiguration->timerQueueHandle)) {
         //#TBD. this may causes deadlock.
 
-        CHK_LOG_ERR(
-            (timer_queue_cancelTimer(pAppConfiguration->timerQueueHandle, pAppConfiguration->iceCandidatePairStatsTimerId, (UINT64) pAppConfiguration)));
+        CHK_LOG_ERR((timer_queue_cancelTimer(pAppConfiguration->timerQueueHandle, pAppConfiguration->iceCandidatePairStatsTimerId,
+                                             (UINT64) pAppConfiguration)));
         pAppConfiguration->iceCandidatePairStatsTimerId = MAX_UINT32;
     }
     MUTEX_UNLOCK(pAppConfiguration->appConfigurationObjLock);
 
     CHK_LOG_ERR((pc_close(pStreamingSession->pPeerConnection)));
     CHK_LOG_ERR((pc_free(&pStreamingSession->pPeerConnection)));
-    MEMFREE(pStreamingSession);
+    SAFE_MEMFREE(pStreamingSession);
 
 CleanUp:
 
@@ -782,7 +789,8 @@ STATUS initApp(BOOL trickleIce, BOOL useTurn, PAppMediaSrc pAppMediaSrc, PAppCon
     pAppConfiguration->cvar = CVAR_CREATE();
     pAppConfiguration->streamingSessionListReadLock = MUTEX_CREATE(FALSE);
     CHK(IS_VALID_MUTEX_VALUE(pAppConfiguration->streamingSessionListReadLock), STATUS_APP_COMMON_INVALID_MUTEX);
-    CHK(timer_queue_createEx(&pAppConfiguration->timerQueueHandle, APP_COMMON_TIMER_NAME, APP_COMMON_TIMER_SIZE) == STATUS_SUCCESS, STATUS_APP_COMMON_TIMER);
+    CHK(timer_queue_createEx(&pAppConfiguration->timerQueueHandle, APP_COMMON_TIMER_NAME, APP_COMMON_TIMER_SIZE) == STATUS_SUCCESS,
+        STATUS_APP_COMMON_TIMER);
 
     pAppConfiguration->trickleIce = trickleIce;
     pAppSignaling->pAppCredential = &pAppConfiguration->appCredential;
@@ -802,12 +810,12 @@ STATUS initApp(BOOL trickleIce, BOOL useTurn, PAppMediaSrc pAppMediaSrc, PAppCon
     pAppSignaling->channelInfo.messageTtl = 0; // Default is 60 seconds
 
     pAppSignaling->clientInfo.version = SIGNALING_CLIENT_INFO_CURRENT_VERSION;
-    //pAppSignaling->clientInfo.loggingLevel = getLogLevel();
-    //pAppSignaling->clientInfo.cacheFilePath = NULL; // Use the default path
+    // pAppSignaling->clientInfo.loggingLevel = getLogLevel();
+    // pAppSignaling->clientInfo.cacheFilePath = NULL; // Use the default path
     STRNCPY(pAppSignaling->clientInfo.clientId, APP_MASTER_CLIENT_ID, MAX_SIGNALING_CLIENT_ID_LEN);
-    
-    CHK_STATUS((app_signaling_init(pAppSignaling, app_common_onSignalingMessageReceived, app_common_onSignalingClientStateChanged, app_common_onSignalingClientError,
-                                 (UINT64) pAppConfiguration, useTurn)));
+
+    CHK_STATUS((app_signaling_init(pAppSignaling, app_common_onSignalingMessageReceived, app_common_onSignalingClientStateChanged,
+                                   app_common_onSignalingClientError, (UINT64) pAppConfiguration, useTurn)));
 
     ATOMIC_STORE_BOOL(&pAppConfiguration->sigInt, FALSE);
     ATOMIC_STORE_BOOL(&pAppConfiguration->mediaThreadStarted, FALSE);
@@ -838,8 +846,9 @@ STATUS initApp(BOOL trickleIce, BOOL useTurn, PAppMediaSrc pAppMediaSrc, PAppCon
 
     // Start the cert pre-gen timer callback
     if (APP_PRE_GENERATE_CERT) {
-        CHK_LOG_ERR((retStatus = timer_queue_addTimer(pAppConfiguration->timerQueueHandle, 0, APP_PRE_GENERATE_CERT_PERIOD, app_common_pregenerateCertTimerCallback,
-                                                 (UINT64) pAppConfiguration, &pAppConfiguration->pregenerateCertTimerId)));
+        CHK_LOG_ERR((retStatus = timer_queue_addTimer(pAppConfiguration->timerQueueHandle, 0, APP_PRE_GENERATE_CERT_PERIOD,
+                                                      app_common_pregenerateCertTimerCallback, (UINT64) pAppConfiguration,
+                                                      &pAppConfiguration->pregenerateCertTimerId)));
     }
 
     gInitialized = TRUE;
@@ -860,6 +869,16 @@ CleanUp:
 STATUS runApp(PAppConfiguration pAppConfiguration)
 {
     STATUS retStatus = STATUS_SUCCESS;
+    retStatus = app_signaling_create(&pAppConfiguration->appSignaling);
+    if (retStatus != STATUS_SUCCESS) {
+        DLOGD("operation returned status code: 0x%08x ", retStatus);
+    }
+
+    retStatus = app_signaling_fetch(&pAppConfiguration->appSignaling);
+    if (retStatus != STATUS_SUCCESS) {
+        DLOGD("operation returned status code: 0x%08x ", retStatus);
+    }
+
     retStatus = app_signaling_connect(&pAppConfiguration->appSignaling);
     if (retStatus != STATUS_SUCCESS) {
         DLOGD("operation returned status code: 0x%08x ", retStatus);
@@ -885,7 +904,7 @@ STATUS freeApp(PAppConfiguration* ppAppConfiguration)
     ATOMIC_STORE_BOOL(&pAppConfiguration->terminateApp, TRUE);
 
     pAppMediaSrc = pAppConfiguration->pAppMediaSrc;
-    if(pAppMediaSrc != NULL){
+    if (pAppMediaSrc != NULL) {
         pAppMediaSrc->app_media_source_shutdown(pAppConfiguration->pMediaContext);
     }
 
@@ -921,7 +940,7 @@ STATUS freeApp(PAppConfiguration* ppAppConfiguration)
     }
 
     app_webrtc_deinit(pAppConfiguration);
-    if(pAppMediaSrc != NULL){
+    if (pAppMediaSrc != NULL) {
         pAppMediaSrc->app_media_source_detroy(&pAppConfiguration->pMediaContext);
     }
 
@@ -947,8 +966,8 @@ STATUS freeApp(PAppConfiguration* ppAppConfiguration)
 
     if (IS_VALID_TIMER_QUEUE_HANDLE(pAppConfiguration->timerQueueHandle)) {
         if (pAppConfiguration->iceCandidatePairStatsTimerId != MAX_UINT32) {
-            retStatus =
-                timer_queue_cancelTimer(pAppConfiguration->timerQueueHandle, pAppConfiguration->iceCandidatePairStatsTimerId, (UINT64) pAppConfiguration);
+            retStatus = timer_queue_cancelTimer(pAppConfiguration->timerQueueHandle, pAppConfiguration->iceCandidatePairStatsTimerId,
+                                                (UINT64) pAppConfiguration);
             if (STATUS_FAILED(retStatus)) {
                 DLOGE("Failed to cancel stats timer with: 0x%08x", retStatus);
             }
@@ -993,7 +1012,6 @@ STATUS pollApp(PAppConfiguration pAppConfiguration)
     CHK(pAppConfiguration != NULL, STATUS_APP_COMMON_NULL_ARG);
 
     while (!ATOMIC_LOAD_BOOL(&pAppConfiguration->sigInt)) {
-
         // Keep the main set of operations interlocked until cvar wait which would atomically unlock
         MUTEX_LOCK(pAppConfiguration->appConfigurationObjLock);
         locked = TRUE;
@@ -1027,18 +1045,20 @@ STATUS pollApp(PAppConfiguration pAppConfiguration)
             }
         }
         // Check if we need to re-create the signaling client on-the-fly
-        if (ATOMIC_LOAD_BOOL(&pAppConfiguration->restartSignalingClient) && STATUS_SUCCEEDED(app_signaling_restart(&pAppConfiguration->appSignaling))) {
+        if (ATOMIC_LOAD_BOOL(&pAppConfiguration->restartSignalingClient) &&
+            STATUS_SUCCEEDED(app_signaling_restart(&pAppConfiguration->appSignaling))) {
             // Re-set the variable again
             ATOMIC_STORE_BOOL(&pAppConfiguration->restartSignalingClient, FALSE);
         }
 
         CHK_STATUS((app_signaling_check(&pAppConfiguration->appSignaling)));
         // Check if any lingering pending message queues
-        CHK_STATUS((app_msg_q_removeExpiredPendingMsgQ(pAppConfiguration->pRemotePeerPendingSignalingMessages, APP_PENDING_MESSAGE_CLEANUP_DURATION)));
+        CHK_STATUS(
+            (app_msg_q_removeExpiredPendingMsgQ(pAppConfiguration->pRemotePeerPendingSignalingMessages, APP_PENDING_MESSAGE_CLEANUP_DURATION)));
 
-        if(shutdownMediaSource == TRUE){
+        if (shutdownMediaSource == TRUE) {
             PAppMediaSrc pAppMediaSrc = pAppConfiguration->pAppMediaSrc;
-            if(pAppMediaSrc != NULL){
+            if (pAppMediaSrc != NULL) {
                 pAppMediaSrc->app_media_source_shutdown(pAppConfiguration->pMediaContext);
             }
 
@@ -1060,7 +1080,7 @@ STATUS pollApp(PAppConfiguration pAppConfiguration)
 CleanUp:
 
     CHK_LOG_ERR((retStatus));
-    if(sessionLocked){
+    if (sessionLocked) {
         MUTEX_UNLOCK(pAppConfiguration->streamingSessionListReadLock);
     }
     if (locked) {
@@ -1077,19 +1097,37 @@ STATUS quitApp(VOID)
     STATUS retStatus = STATUS_SUCCESS;
     UINT32 counter = 0;
     DLOGD("Quit webrtc app.");
-    if(gAppConfiguration != NULL){
+
+    if (gAppConfiguration != NULL) {
+        retStatus = app_signaling_shutdown(&gAppConfiguration->appSignaling);
+        if (retStatus != STATUS_SUCCESS) {
+            DLOGE("shutdown signaling client failed!");
+        }
         ATOMIC_STORE_BOOL(&gAppConfiguration->sigInt, TRUE);
         CVAR_BROADCAST(gAppConfiguration->cvar);
     }
 
-    while(gInitialized && counter < 100){
+    while (gInitialized && counter < 100) {
         THREAD_SLEEP(50 * HUNDREDS_OF_NANOS_IN_A_MILLISECOND);
         counter++;
     }
 
-    if(counter >= 100){
+    if (counter >= 100) {
         DLOGE("Failed to quit app.");
         retStatus = STATUS_APP_COMMON_QUIT_APP;
+    }
+
+    LEAVES();
+    return retStatus;
+}
+
+STATUS getApp(PAppConfiguration* ppAppConfiguration)
+{
+    ENTERS();
+    STATUS retStatus = STATUS_SUCCESS;
+
+    if (ppAppConfiguration != NULL) {
+        *ppAppConfiguration = gAppConfiguration;
     }
 
     LEAVES();

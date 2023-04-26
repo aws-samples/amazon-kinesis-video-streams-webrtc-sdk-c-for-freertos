@@ -17,7 +17,7 @@
 #include "kvs/common_defs.h"
 
 STATUS app_signaling_init(PAppSignaling pAppSignaling, SignalingClientMessageReceivedFunc onMessageReceived,
-                        SignalingClientStateChangedFunc onStateChanged, SignalingClientErrorReportFunc pOnError, UINT64 udata, BOOL useTurn)
+                          SignalingClientStateChangedFunc onStateChanged, SignalingClientErrorReportFunc pOnError, UINT64 udata, BOOL useTurn)
 {
     STATUS retStatus = STATUS_SUCCESS;
     pAppSignaling->signalingClientHandle = INVALID_SIGNALING_CLIENT_HANDLE_VALUE;
@@ -92,15 +92,41 @@ CleanUp:
     return retStatus;
 }
 
-STATUS app_signaling_connect(PAppSignaling pAppSignaling)
+STATUS app_signaling_create(PAppSignaling pAppSignaling)
 {
     STATUS retStatus = STATUS_SUCCESS;
     CHK(signaling_client_create(&pAppSignaling->clientInfo, &pAppSignaling->channelInfo, &pAppSignaling->signalingClientCallbacks,
-                                  pAppSignaling->pAppCredential->pCredentialProvider, &pAppSignaling->signalingClientHandle) == STATUS_SUCCESS,
+                                pAppSignaling->pAppCredential->pCredentialProvider, &pAppSignaling->signalingClientHandle) == STATUS_SUCCESS,
         STATUS_APP_SIGNALING_CREATE);
-    DLOGD("Signaling client created successfully");
+    DLOGD("Signaling client created successfully\n");
+
+CleanUp:
+    return retStatus;
+}
+
+STATUS app_signaling_fetch(PAppSignaling pAppSignaling)
+{
+    STATUS retStatus = STATUS_SUCCESS;
+    CHK(signaling_client_fetch(pAppSignaling->signalingClientHandle) == STATUS_SUCCESS, STATUS_APP_SIGNALING_FETCH);
+
+CleanUp:
+    return retStatus;
+}
+
+STATUS app_signaling_connect(PAppSignaling pAppSignaling)
+{
+    STATUS retStatus = STATUS_SUCCESS;
     // Enable the processing of the messages
     CHK(signaling_client_connect(pAppSignaling->signalingClientHandle) == STATUS_SUCCESS, STATUS_APP_SIGNALING_CONNECT);
+
+CleanUp:
+    return retStatus;
+}
+
+STATUS app_signaling_shutdown(PAppSignaling pAppSignaling)
+{
+    STATUS retStatus = STATUS_SUCCESS;
+    CHK(signaling_client_shutdown(pAppSignaling->signalingClientHandle) == STATUS_SUCCESS, STATUS_APP_SIGNALING_SHUTDOWN);
 
 CleanUp:
     return retStatus;
@@ -157,7 +183,7 @@ STATUS app_signaling_restart(PAppSignaling pAppSignaling)
     // Check if we need to re-create the signaling client on-the-fly
     CHK(signaling_client_free(&pAppSignaling->signalingClientHandle) == STATUS_SUCCESS, STATUS_APP_SIGNALING_RESTART);
     CHK(signaling_client_create(&pAppSignaling->clientInfo, &pAppSignaling->channelInfo, &pAppSignaling->signalingClientCallbacks,
-                                  pAppSignaling->pAppCredential->pCredentialProvider, &pAppSignaling->signalingClientHandle) == STATUS_SUCCESS,
+                                pAppSignaling->pAppCredential->pCredentialProvider, &pAppSignaling->signalingClientHandle) == STATUS_SUCCESS,
         STATUS_APP_SIGNALING_RESTART);
 
 CleanUp:

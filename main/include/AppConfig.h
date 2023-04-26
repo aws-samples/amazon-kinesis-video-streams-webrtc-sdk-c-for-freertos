@@ -57,15 +57,14 @@ extern "C" {
 #define APP_AUDIO_TRACK_STREAM_ID "myKvsVideoStream"
 #define APP_AUDIO_TRACK_ID        "myAudioTrack"
 
-
-#define APP_MEDIA_CONTROL_THREAD_NAME "media_control"
-#define APP_MEDIA_CONTROL_THREAD_SIZE 4096
+#define APP_MEDIA_CONTROL_THREAD_NAME      "media_control"
+#define APP_MEDIA_CONTROL_THREAD_SIZE      4096
 #define APP_MEDIA_VIDEO_SENDER_THREAD_NAME "video_sender"
 #define APP_MEDIA_VIDEO_SENDER_THREAD_SIZE 8192
 #define APP_MEDIA_AUDIO_SENDER_THREAD_NAME "audio_sender"
 #define APP_MEDIA_AUDIO_SENDER_THREAD_SIZE 4096
-#define APP_COMMON_TIMER_NAME "app_common_timer"
-#define APP_COMMON_TIMER_SIZE 10240
+#define APP_COMMON_TIMER_NAME              "app_common_timer"
+#define APP_COMMON_TIMER_SIZE              10240
 
 #ifdef __cplusplus
 }
