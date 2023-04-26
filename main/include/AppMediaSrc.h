@@ -23,22 +23,22 @@ extern "C" {
 #include "AppConfig.h"
 #include "AppError.h"
 
-typedef STATUS(*MediaSinkHook)(PVOID udata, PFrame pFrame);
-typedef STATUS(*MediaEosHook)(PVOID udata);
+typedef STATUS (*MediaSinkHook)(PVOID udata, PFrame pFrame);
+typedef STATUS (*MediaEosHook)(PVOID udata);
 typedef PVOID PMediaContext;
 
-typedef struct __AppMediaSrc{
-	STATUS (*app_media_source_init)(PMediaContext *ppMediaContext);
-	STATUS (*app_media_source_isReady)(PMediaContext pMediaContext);
-	STATUS (*app_media_source_queryVideoCap)(PMediaContext pMediaContext, RTC_CODEC *pCodec);
-	STATUS (*app_media_source_queryAudioCap)(PMediaContext pMediaContext, RTC_CODEC *pCodec);
-	STATUS (*app_media_source_linkSinkHook)(PMediaContext pMediaContext, MediaSinkHook mediaSinkHook, PVOID udata);
-	STATUS (*app_media_source_linkEosHook)(PMediaContext pMediaContext, MediaEosHook mediaEosHook, PVOID udata);
-	PVOID (*app_media_source_run)(PVOID pArgs);
-	STATUS (*app_media_source_shutdown)(PMediaContext pMediaContext);
-	STATUS (*app_media_source_isShutdown)(PMediaContext pMediaContext, PBOOL pShutdown);
-	STATUS (*app_media_source_detroy)(PMediaContext *ppMediaContext);
-}AppMediaSrc, *PAppMediaSrc;
+typedef struct __AppMediaSrc {
+    STATUS (*app_media_source_init)(PMediaContext* ppMediaContext);
+    STATUS (*app_media_source_isReady)(PMediaContext pMediaContext);
+    STATUS (*app_media_source_queryVideoCap)(PMediaContext pMediaContext, RTC_CODEC* pCodec);
+    STATUS (*app_media_source_queryAudioCap)(PMediaContext pMediaContext, RTC_CODEC* pCodec);
+    STATUS (*app_media_source_linkSinkHook)(PMediaContext pMediaContext, MediaSinkHook mediaSinkHook, PVOID udata);
+    STATUS (*app_media_source_linkEosHook)(PMediaContext pMediaContext, MediaEosHook mediaEosHook, PVOID udata);
+    PVOID (*app_media_source_run)(PVOID pArgs);
+    STATUS (*app_media_source_shutdown)(PMediaContext pMediaContext);
+    STATUS (*app_media_source_isShutdown)(PMediaContext pMediaContext, PBOOL pShutdown);
+    STATUS (*app_media_source_detroy)(PMediaContext* ppMediaContext);
+} AppMediaSrc, *PAppMediaSrc;
 
 #ifdef __cplusplus
 }

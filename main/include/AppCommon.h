@@ -53,7 +53,7 @@ typedef struct {
     AppCredential appCredential; //!< the context of app credential.
     AppSignaling appSignaling;   //!< the context of app signaling.
     PAppMediaSrc pAppMediaSrc;
-    PVOID pMediaContext;         //!< the context of media.
+    PVOID pMediaContext; //!< the context of media.
 
     TID mediaControlTid;
     startRoutine mediaSource;
@@ -67,7 +67,7 @@ typedef struct {
     MUTEX appConfigurationObjLock;
     CVAR cvar;
     BOOL trickleIce; //!< This is ignored for master. Master can extract the info from offer. Viewer has to know if peer can trickle or
-                     //!< not ahead of time.
+    //!< not ahead of time.
     BOOL enableFileLogging;
 
     PStreamingSession streamingSessionList[APP_MAX_CONCURRENT_STREAMING_SESSION];
@@ -88,7 +88,8 @@ struct __StreamingSession {
     RtcSessionDescriptionInit answerSessionDescriptionInit;
     PAppConfiguration pAppConfiguration; //!< the context of the app
 
-    CHAR peerId[MAX_SIGNALING_CLIENT_ID_LEN + 1]; //!< https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis3.html
+    CHAR peerId[MAX_SIGNALING_CLIENT_ID_LEN +
+                1]; //!< https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis3.html
 
     UINT64 offerReceiveTime;
     UINT64 startUpLatency;
@@ -134,6 +135,9 @@ STATUS freeApp(PAppConfiguration* ppAppConfiguration);
 STATUS pollApp(PAppConfiguration pAppConfiguration);
 
 STATUS quitApp(VOID);
+
+STATUS getApp(PAppConfiguration* ppAppConfiguration);
+
 #ifdef __cplusplus
 }
 #endif
