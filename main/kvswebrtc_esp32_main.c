@@ -28,7 +28,7 @@
 #include "esp_heap_caps.h"
 
 #include "AppMain.h"
-#include "AppMediaSrc_ESP32_FileSrc.h"
+#include "AppMediaSrc_FileSrc.h"
 
 /* The examples use WiFi configuration that you can set via project configuration menu
 
@@ -79,7 +79,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-char* esp_get_ip(void)
+char* app_get_ip(void)
 {
     return wifi_ip;
 }

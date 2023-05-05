@@ -1,0 +1,405 @@
+From c10e70842c5ef8cf938e5f142b0abddf39ffc047 Mon Sep 17 00:00:00 2001
+From: Lina Chen <chenln1124@thundersoft.com>
+Date: Fri, 5 May 2023 15:02:48 +0800
+Subject: [PATCH 8/8] Enable on ANYKE platform.
+
+---
+ CMakeLists.txt                         | 15 +++++++++++
+ usrsctplib/CMakeLists.txt              |  8 +++++-
+ usrsctplib/netinet/sctp.h              |  8 ++++++
+ usrsctplib/netinet/sctp_bsd_addr.c     |  8 ++++--
+ usrsctplib/netinet/sctp_os_userspace.h | 36 +++++++++++++++++++++++---
+ usrsctplib/netinet/sctp_pcb.c          |  3 +++
+ usrsctplib/netinet/sctp_uio.h          |  2 +-
+ usrsctplib/netinet/sctp_userspace.c    | 23 ++++++++++++----
+ usrsctplib/user_atomic.h               | 20 +++++++++++++-
+ usrsctplib/user_malloc.h               |  7 +++++
+ usrsctplib/user_recv_thread.c          |  4 +--
+ usrsctplib/user_socketvar.h            |  6 ++---
+ usrsctplib/usrsctp.h                   |  2 +-
+ 13 files changed, 122 insertions(+), 20 deletions(-)
+ mode change 100644 => 100755 CMakeLists.txt
+ mode change 100644 => 100755 usrsctplib/CMakeLists.txt
+ mode change 100644 => 100755 usrsctplib/usrsctp.h
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+old mode 100644
+new mode 100755
+index f04b944..934bfc6
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -45,6 +45,21 @@ include(CheckIncludeFile)
+ include(CheckIncludeFiles)
+ include(CheckCCompilerFlag)
+ 
++option(KVS_PLAT_ESP_FREERTOS   "Build for ESP FreeRTOS"   OFF)
++option(KVS_PLAT_ANYKE_FREERTOS "Build for ANYKE FreeRTOS" OFF)
++
++if(KVS_PLAT_ESP_FREERTOS)
++  add_definitions(-DKVS_PLAT_ESP_FREERTOS)
++endif()
++
++if(KVS_PLAT_ANYKE_FREERTOS)
++  add_definitions(-DKVS_PLAT_ANYKE_FREERTOS)
++endif()
++
++if (KVS_PLAT_ANYKE_FREERTOS)
++  include_directories(${MBEDTLS_INCLUDE_DIRS})
++endif()
++
+ #################################################
+ # CHECK OPTIONS
+ #################################################
+diff --git a/usrsctplib/CMakeLists.txt b/usrsctplib/CMakeLists.txt
+old mode 100644
+new mode 100755
+index 581cf25..8507b41
+--- a/usrsctplib/CMakeLists.txt
++++ b/usrsctplib/CMakeLists.txt
+@@ -198,6 +198,10 @@ endif ()
+ 
+ if(SCTP_USE_MBEDTLS_SHA1)
+ 	target_link_libraries(usrsctp-static PRIVATE ${MBEDTLS_LIBRARIES})
++    if(KVS_PLAT_ANYKE_FREERTOS)
++	set(PLATFORM_LIBRARY_DIRS ${CMAKE_SOURCE_DIR}/../../os)
++	target_link_libraries(usrsctp-static PRIVATE ${PLATFORM_LIBRARY_DIRS}/libfreertos.a)
++    endif()
+ endif()
+ 
+ set_target_properties(usrsctp-static PROPERTIES OUTPUT_NAME "usrsctp")
+@@ -214,4 +218,6 @@ endif ()
+ #################################################
+ 
+ install(TARGETS usrsctp-static DESTINATION ${CMAKE_INSTALL_LIBDIR})
+-install(FILES usrsctp.h DESTINATION include)
++if(NOT KVS_PLAT_ANYKE_FREERTOS)
++  install(FILES usrsctp.h DESTINATION include)
++endif()
+\ No newline at end of file
+diff --git a/usrsctplib/netinet/sctp.h b/usrsctplib/netinet/sctp.h
+index 8d8bf31..faf8dcc 100755
+--- a/usrsctplib/netinet/sctp.h
++++ b/usrsctplib/netinet/sctp.h
+@@ -669,4 +669,12 @@ struct sctp_error_auth_invalid_hmac {
+ #define SCTP_LOG_AT_SEND_2_OUTQ				0x08000000
+ #define SCTP_LOG_TRY_ADVANCE				0x10000000
+ 
++#if defined(KVS_PLAT_ANYKE_FREERTOS)
++#define SOCK_SEQPACKET  5
++#define MSG_EOR   0x8
++/* Maximum queue length specifiable by listen.  */
++#define SOMAXCONN       128
++#define ENOTSUP         134
++#endif
++
+ #endif				/* !_NETINET_SCTP_H_ */
+diff --git a/usrsctplib/netinet/sctp_bsd_addr.c b/usrsctplib/netinet/sctp_bsd_addr.c
+index ec900eb..6b72dcb 100755
+--- a/usrsctplib/netinet/sctp_bsd_addr.c
++++ b/usrsctplib/netinet/sctp_bsd_addr.c
+@@ -438,8 +438,12 @@ sctp_init_ifns_for_vrf(int vrfid)
+ 			if(ip_addr_isloopback(&tmp_if->ip_addr)){
+ 				continue;
+ 			}
+-
+-			if(tmp_if->ip_addr.type == IPADDR_TYPE_V4){
++			// TODO anyky lwip ipv4 type bug
++#if defined(KVS_PLAT_ANYKE_FREERTOS)
++			if (true){
++#else
++			if (tmp_if->ip_addr.type == IPADDR_TYPE_V4){
++#endif
+ 				in_addr->sa_family = AF_INET;
+ 				memcpy(&((struct sockaddr_in *)in_addr)->sin_addr, &tmp_if->ip_addr.u_addr, sizeof(uint32_t) );
+ 			}else{
+diff --git a/usrsctplib/netinet/sctp_os_userspace.h b/usrsctplib/netinet/sctp_os_userspace.h
+index b2a09e1..075a963 100755
+--- a/usrsctplib/netinet/sctp_os_userspace.h
++++ b/usrsctplib/netinet/sctp_os_userspace.h
+@@ -41,6 +41,34 @@
+  * We will place them in userspace stack build directory.
+  */
+ 
++#if defined(KVS_PLAT_ANYKE_FREERTOS)
++typedef char* caddr_t;
++
++#define timeradd(tvp, uvp, vvp)   \
++	do {                          \
++	    (vvp)->tv_sec = (tvp)->tv_sec + (uvp)->tv_sec;  \
++		(vvp)->tv_usec = (tvp)->tv_usec + (uvp)->tv_usec;  \
++		if ((vvp)->tv_usec >= 1000000) {                   \
++		    (vvp)->tv_sec++;                        \
++			(vvp)->tv_usec -= 1000000;             \
++		}                         \
++	} while (0)
++
++#define timersub(tvp, uvp, vvp)   \
++	do {                          \
++	    (vvp)->tv_sec = (tvp)->tv_sec - (uvp)->tv_sec;  \
++		(vvp)->tv_usec = (tvp)->tv_usec - (uvp)->tv_usec;  \
++		if ((vvp)->tv_usec < 0) {                   \
++		    (vvp)->tv_sec--;                        \
++			(vvp)->tv_usec += 1000000;             \
++		}                       \
++	} while (0)
++
++#define	timercmp(tvp, uvp, cmp)						\
++	(((tvp)->tv_sec == (uvp)->tv_sec) ?				\
++	    ((tvp)->tv_usec cmp (uvp)->tv_usec) :			\
++	    ((tvp)->tv_sec cmp (uvp)->tv_sec))
++#endif
+ 
+ #if !defined(SCTP_USE_LWIP)
+ #include <errno.h>
+@@ -288,7 +316,7 @@ typedef char* caddr_t;
+ 
+ #else /* !defined(Userspace_os_Windows) */
+ #include <sys/socket.h>
+-#if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__linux__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__native_client__) || defined(__Fuchsia__)
++#if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__linux__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__native_client__) || defined(__Fuchsia__)|| defined(KVS_PLAT_ANYKE_FREERTOS)
+ #include <pthread.h>
+ #endif
+ 
+@@ -468,7 +496,7 @@ struct sx {int dummy;};
+ /* #include <net/route.h> */
+ #if !defined(_WIN32) && !defined(__native_client__)
+ #include <net/if.h>
+-#include <netinet/in.h>
++//#include <netinet/in.h>
+ #if !defined(SCTP_USE_LWIP)
+ #include <netinet/in_systm.h>
+ #endif
+@@ -494,7 +522,7 @@ struct sx {int dummy;};
+ #endif
+ 
+ /* for ioctl */
+-#include <sys/ioctl.h>
++//#include <sys/ioctl.h>
+ 
+ /* for close, etc. */
+ #include <unistd.h>
+@@ -1145,7 +1173,7 @@ sctp_get_mbuf_for_msg(unsigned int space_needed, int want_header, int how, int a
+ #define LIST_FOREACH_SAFE LIST_FOREACH_MUTABLE
+ #endif
+ 
+-#if defined(__native_client__)
++#if defined(__native_client__) || defined(SCTP_USE_RTOS)
+ #define	timercmp(tvp, uvp, cmp)						\
+ 	(((tvp)->tv_sec == (uvp)->tv_sec) ?				\
+ 	    ((tvp)->tv_usec cmp (uvp)->tv_usec) :			\
+diff --git a/usrsctplib/netinet/sctp_pcb.c b/usrsctplib/netinet/sctp_pcb.c
+index 4acf743..0586d6c 100755
+--- a/usrsctplib/netinet/sctp_pcb.c
++++ b/usrsctplib/netinet/sctp_pcb.c
+@@ -6740,7 +6740,10 @@ sctp_pcb_init(void)
+ #endif
+ #if defined(__Userspace__)
+ 	mbuf_initialize(NULL);
++#if defined (KVS_PLAT_ANYKE_FREERTOS)
++#else
+ 	atomic_init();
++#endif
+ #if defined(INET) || defined(INET6)
+ 	if (start_threads)
+ 		recv_thread_init();
+diff --git a/usrsctplib/netinet/sctp_uio.h b/usrsctplib/netinet/sctp_uio.h
+index 6298f93..220bcfa 100755
+--- a/usrsctplib/netinet/sctp_uio.h
++++ b/usrsctplib/netinet/sctp_uio.h
+@@ -52,7 +52,7 @@ __FBSDID("$FreeBSD: head/sys/netinet/sctp_uio.h 362473 2020-06-21 23:12:56Z tuex
+ #endif
+ #include <sys/types.h>
+ #include <sys/socket.h>
+-#include <netinet/in.h>
++//#include <netinet/in.h>
+ #endif
+ #if defined(_WIN32) && !defined(__Userspace__)
+ #pragma warning(push)
+diff --git a/usrsctplib/netinet/sctp_userspace.c b/usrsctplib/netinet/sctp_userspace.c
+index 2b4a533..0b2e071 100755
+--- a/usrsctplib/netinet/sctp_userspace.c
++++ b/usrsctplib/netinet/sctp_userspace.c
+@@ -37,10 +37,15 @@
+ #endif
+ #include <user_config.h>
+ 
+-#if defined(SCTP_USE_RTOS)
++#if (defined(SCTP_USE_RTOS) && defined(KVS_PLAT_ANYKE_FREERTOS))
++#include "pthread.h"
++#endif
++
++#if (defined(SCTP_USE_RTOS) && defined(KVS_PLAT_ESP_FREERTOS))
+ #include <netinet/sctp_pcb.h>
+ #include "esp_pthread.h"
+ #endif
++
+ #include <netinet/sctp_os_userspace.h>
+ #if defined(__FreeBSD__)
+ #include <pthread_np.h>
+@@ -80,9 +85,7 @@ sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_ro
+ #pragma GCC diagnostic pop
+ #endif
+ 
+-#elif defined(SCTP_USE_RTOS)
+-#include "esp_pthread.h"
+-
++#elif (defined(SCTP_USE_RTOS) && defined(KVS_PLAT_ESP_FREERTOS))
+ int
+ sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_routine, const char* thread_name, uint32_t thread_size)
+ {
+@@ -133,7 +136,17 @@ sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_ro
+ int
+ sctp_userspace_thread_create(userland_thread_t *thread, start_routine_t start_routine, const char* thread_name, uint32_t thread_size)
+ {
+-	return pthread_create(thread, NULL, start_routine, NULL);
++    pthread_attr_t *pAttr = NULL;
++    pthread_attr_t attr;
++    pAttr = &attr;
++    int result = 0;
++    result = pthread_attr_init(pAttr);
++    if(thread_size == 0){
++        pthread_attr_setstacksize(pAttr, SCTP_THREAD_DEFAULT_SIZE);
++    }else{
++        pthread_attr_setstacksize(pAttr, thread_size);
++    }
++    return pthread_create(thread, pAttr, start_routine, NULL);
+ }
+ #endif
+ 
+diff --git a/usrsctplib/user_atomic.h b/usrsctplib/user_atomic.h
+index 6a59587..61b4017 100755
+--- a/usrsctplib/user_atomic.h
++++ b/usrsctplib/user_atomic.h
+@@ -91,16 +91,28 @@ static inline void atomic_init(void) {} /* empty when we are not using atomic_mt
+  */
+ 
+ /*Atomically add V to *P.*/
++#if defined(KVS_PLAT_ANYKE_FREERTOS)
++#define atomic_add_int(P, V)	 (void) __atomic_fetch_add(P, V, __ATOMIC_SEQ_CST)
++#else
+ #define atomic_add_int(P, V)	 (void) __sync_fetch_and_add(P, V)
++#endif
+ 
+ /*Atomically subtrace V from *P.*/
++#if defined(KVS_PLAT_ANYKE_FREERTOS)
++#define atomic_subtract_int(P, V)	 (void) __atomic_fetch_sub(P, V, __ATOMIC_SEQ_CST)
++#else
+ #define atomic_subtract_int(P, V) (void) __sync_fetch_and_sub(P, V)
++#endif
+ 
+ /*
+  * Atomically add the value of v to the integer pointed to by p and return
+  * the previous value of *p.
+  */
++#if defined(KVS_PLAT_ANYKE_FREERTOS)
++#define atomic_fetchadd_int(p, v) __atomic_fetch_add(p, v,  __ATOMIC_SEQ_CST)
++#else
+ #define atomic_fetchadd_int(p, v) __sync_fetch_and_add(p, v)
++#endif
+ 
+ /* Following explanation from src/sys/i386/include/atomic.h,
+  * for atomic compare and set
+@@ -109,8 +121,11 @@ static inline void atomic_init(void) {} /* empty when we are not using atomic_mt
+  *
+  * Returns 0 on failure, non-zero on success
+  */
+-
++#if defined(KVS_PLAT_ANYKE_FREERTOS)
++#define atomic_cmpset_int(dst, exp, src) __atomic_exchange_n(dst, src, __ATOMIC_SEQ_CST)
++#else
+ #define atomic_cmpset_int(dst, exp, src) __sync_bool_compare_and_swap(dst, exp, src)
++#endif
+ 
+ #define SCTP_DECREMENT_AND_CHECK_REFCOUNT(addr) (atomic_fetchadd_int(addr, -1) == 1)
+ #if defined(INVARIANTS)
+@@ -132,8 +147,11 @@ static inline void atomic_init(void) {} /* empty when we are not using atomic_mt
+ 	} \
+ }
+ #endif
++#if defined(KVS_PLAT_ANYKE_FREERTOS)
++#else
+ static inline void atomic_init(void) {} /* empty when we are not using atomic_mtx */
+ #endif
++#endif
+ 
+ #if 0 /* using libatomic_ops */
+ #include "user_include/atomic_ops.h"
+diff --git a/usrsctplib/user_malloc.h b/usrsctplib/user_malloc.h
+index 1612452..8ac3bcd 100755
+--- a/usrsctplib/user_malloc.h
++++ b/usrsctplib/user_malloc.h
+@@ -65,6 +65,13 @@
+ 
+ #define	M_MAGIC		877983977	/* time when first defined :-) */
+ 
++#if defined(KVS_PLAT_ANYKE_FREERTOS)
++#define u_char      uint8_t
++#define u_short     uint16_t
++#define u_int       uint32_t
++#define u_long      uint32_t
++#endif
++
+ /*
+  * Two malloc type structures are present: malloc_type, which is used by a
+  * type owner to declare the type, and malloc_type_internal, which holds
+diff --git a/usrsctplib/user_recv_thread.c b/usrsctplib/user_recv_thread.c
+index 1a72948..4c8d4c9 100755
+--- a/usrsctplib/user_recv_thread.c
++++ b/usrsctplib/user_recv_thread.c
+@@ -32,11 +32,11 @@
+ #include <sys/types.h>
+ #if !defined(_WIN32)
+ #include <sys/socket.h>
+-#include <netinet/in.h>
++//#include <netinet/in.h>
+ #include <unistd.h>
+ #include <pthread.h>
+ #if !defined(__DragonFly__) && !defined(__FreeBSD__) && !defined(__NetBSD__)
+-#include <sys/uio.h>
++//#include <sys/uio.h>
+ #else
+ #include <user_ip6_var.h>
+ #endif
+diff --git a/usrsctplib/user_socketvar.h b/usrsctplib/user_socketvar.h
+index 6b79b59..badd145 100755
+--- a/usrsctplib/user_socketvar.h
++++ b/usrsctplib/user_socketvar.h
+@@ -42,7 +42,7 @@
+ /* #include <sys/_lock.h>  was 0 byte file */
+ /* #include <sys/_mutex.h> was 0 byte file */
+ /* #include <sys/_sx.h> */ /*__Userspace__ alternative?*/
+-#if !defined(__DragonFly__) && !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(_WIN32) && !defined(__native_client__)
++#if !defined(__DragonFly__) && !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(_WIN32) && !defined(__native_client__) && !defined(KVS_PLAT_ANYKE_FREERTOS)
+ #include <sys/uio.h>
+ #endif
+ #define SOCK_MAXADDRLEN 255
+@@ -54,9 +54,9 @@
+ #define SS_CANTRCVMORE 0x020
+ #define SS_CANTSENDMORE 0x010
+ 
+-#if defined(__APPLE__) || defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(_WIN32) || defined(__native_client__)
++#if defined(__APPLE__) || defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(_WIN32) || defined(__native_client__) || defined(KVS_PLAT_ANYKE_FREERTOS)
+ #define UIO_MAXIOV 1024
+-#define ERESTART (-1)
++//#define ERESTART (-1)
+ #endif
+ 
+ #if !defined(__APPLE__) && !defined(__NetBSD__) && !defined(__OpenBSD__)
+diff --git a/usrsctplib/usrsctp.h b/usrsctplib/usrsctp.h
+old mode 100644
+new mode 100755
+index 0e3012f..23131b7
+--- a/usrsctplib/usrsctp.h
++++ b/usrsctplib/usrsctp.h
+@@ -48,7 +48,7 @@ extern "C" {
+ #include <ws2tcpip.h>
+ #else
+ #include <sys/socket.h>
+-#include <netinet/in.h>
++//#include <netinet/in.h>
+ #endif
+ 
+ #ifndef MSG_NOTIFICATION
+-- 
+2.17.1
+

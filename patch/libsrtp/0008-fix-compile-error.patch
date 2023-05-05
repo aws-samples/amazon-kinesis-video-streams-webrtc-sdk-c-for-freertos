@@ -1,7 +1,7 @@
-From a976c8233836972f0f561b7f662a890c8373e937 Mon Sep 17 00:00:00 2001
+From 61bed9a5f79144ade00450af5c62c975b7478f14 Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Wed, 19 May 2021 12:14:54 +0800
-Subject: [PATCH 8/8] fix compile error.
+Subject: [PATCH 8/9] fix compile error.
 
 ---
  CMakeLists.txt | 5 ++++-

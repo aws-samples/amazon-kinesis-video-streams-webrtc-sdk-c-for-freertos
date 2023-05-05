@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 #define LOG_CLASS "AppFileSrc"
-#include "AppMediaSrc_ESP32_FileSrc.h"
+#include "AppMediaSrc_FileSrc.h"
 #include "AppCommon.h"
 #include "fileio.h"
 
@@ -23,6 +23,12 @@
 
 #define FILESRC_AUDIO_FRAME_DURATION (20 * HUNDREDS_OF_NANOS_IN_A_MILLISECOND)
 #define FILESRC_VIDEO_FRAME_DURATION (HUNDREDS_OF_NANOS_IN_A_SECOND / DEFAULT_FPS_VALUE)
+
+#if defined (KVS_PLAT_ESP_FREERTOS)
+#define FILESRC_ROOT_PATH  "/sdcard"
+#elif defined (KVS_PLAT_ANYKE_FREERTOS)
+#define FILESRC_ROOT_PATH  "/mnt"
+#endif
 
 typedef struct {
     RTC_CODEC codec;
@@ -100,7 +106,7 @@ PVOID sendVideoPackets(PVOID args)
 
     while (!ATOMIC_LOAD_BOOL(&pFileSrcContext->shutdownFileSrc)) {
         fileIndex = fileIndex % NUMBER_OF_H264_FRAME_FILES + 1;
-        snprintf(filePath, MAX_PATH_LEN, "/sdcard/h264SampleFrames/frame-%04d.h264", fileIndex);
+        snprintf(filePath, MAX_PATH_LEN, "%s/h264SampleFrames/frame-%04d.h264", FILESRC_ROOT_PATH, fileIndex);
 
         CHK(readFrameFromDisk(NULL, &frameSize, filePath) == STATUS_SUCCESS, STATUS_MEDIA_VIDEO_SINK);
 
@@ -167,7 +173,7 @@ PVOID sendAudioPackets(PVOID args)
 
     while (!ATOMIC_LOAD_BOOL(&pFileSrcContext->shutdownFileSrc)) {
         fileIndex = fileIndex % NUMBER_OF_OPUS_FRAME_FILES + 1;
-        snprintf(filePath, MAX_PATH_LEN, "/sdcard/opusSampleFrames/sample-%03d.opus", fileIndex);
+        snprintf(filePath, MAX_PATH_LEN, "%s/opusSampleFrames/sample-%03d.opus", FILESRC_ROOT_PATH, fileIndex);
         
         CHK(readFrameFromDisk(NULL, &frameSize, filePath) == STATUS_SUCCESS, STATUS_MEDIA_AUDIO_SINK);
         // Re-alloc if needed
@@ -381,3 +387,13 @@ AppMediaSrc gAppMediaSrc = {
     .app_media_source_isShutdown = NULL,
     .app_media_source_detroy = app_media_source_detroy
 };
+
+#ifdef ENABLE_AUDIO_SENDRECV
+PVOID app_media_sink_onFrame(PVOID pArgs)
+{
+    STATUS retStatus = STATUS_SUCCESS;
+
+CleanUp:
+    return (PVOID)(ULONG_PTR) retStatus;
+}
+#endif

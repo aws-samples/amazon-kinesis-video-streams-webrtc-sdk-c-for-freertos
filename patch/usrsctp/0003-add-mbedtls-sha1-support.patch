@@ -1,7 +1,7 @@
-From 4d610f33085e570b89f5f9fbff699af30b735e9d Mon Sep 17 00:00:00 2001
+From 6a8179f4b21885f1f2ceb051816a6a952eb36e73 Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Fri, 23 Apr 2021 16:50:39 +0800
-Subject: [PATCH 3/7] add-mbedtls-sha1-support.
+Subject: [PATCH 3/8] add-mbedtls-sha1-support.
 
 ---
  CMakeLists.txt                 |  2 ++
@@ -169,5 +169,5 @@ index d535ee4..9ff4ff7 100755
  	unsigned int A;
  	unsigned int B;
 -- 
-2.34.1
+2.17.1
 

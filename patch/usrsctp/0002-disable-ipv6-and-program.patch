@@ -1,7 +1,7 @@
-From 0149f44fe89dbf460773ff82736febcf36eddf96 Mon Sep 17 00:00:00 2001
+From 629e15dcb2267b1d4a8ed36261b8bd823520ab0c Mon Sep 17 00:00:00 2001
 From: ycyang1229 <yc.yang1229@gmail.com>
 Date: Thu, 29 Apr 2021 17:25:17 +0800
-Subject: [PATCH 2/7] disable ipv6 and program.
+Subject: [PATCH 2/8] disable ipv6 and program.
 
 ---
  CMakeLists.txt | 6 +++---
@@ -32,5 +32,5 @@ index 64c0061..bc0efe4 100644
  option(sctp_sanitizer_address "Compile with address sanitizer" 0)
  
 -- 
-2.34.1
+2.17.1
 
