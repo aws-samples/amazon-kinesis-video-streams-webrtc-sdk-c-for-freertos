@@ -1,7 +1,7 @@
-From 4c78c7a980f0db1da586a30167f08fe23fda9b64 Mon Sep 17 00:00:00 2001
+From e91a0e05e746b0f708fde0ee00245465a84aa916 Mon Sep 17 00:00:00 2001
 From: ycyang <yc.yang1229@gmail.com>
 Date: Tue, 25 Apr 2023 13:45:29 +0800
-Subject: [PATCH 7/7] disable the compiling of shared lib.
+Subject: [PATCH 7/8] disable the compiling of shared lib.
 
 ---
  usrsctplib/CMakeLists.txt | 16 ++++++++--------
@@ -56,5 +56,5 @@ index 7f45b47..581cf25 100644
 +install(TARGETS usrsctp-static DESTINATION ${CMAKE_INSTALL_LIBDIR})
  install(FILES usrsctp.h DESTINATION include)
 -- 
-2.34.1
+2.17.1
 
