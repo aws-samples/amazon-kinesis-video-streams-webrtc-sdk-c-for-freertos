@@ -12,7 +12,32 @@ git submodule update --init --recursive
 
 ## Reference platform
 
-We use [ESP IDF 4.4.2](https://github.com/espressif/esp-idf/releases/tag/v4.4.2) and the [ESP-Wrover-Kit](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html) as the reference platform. Please follow the [Espressif instructions](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html) to set up the environment.
+We use [ESP IDF 4.4.2](https://github.com/espressif/esp-idf/releases/tag/v4.4.2) and the [ESP-Wrover-Kit](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-wrover-kit.html) as the reference platform.
+
+Please git clone the ESP IDF 4.4.2 with following command
+
+```
+git clone -b v4.4.2 --recursive https://github.com/espressif/esp-idf.git esp-idf-v4.4.2
+```
+make change on file
+
+components/esp_rom/include/esp32/rom/ets_sys.h
+
+line 638 to 644 to following
+
++#ifndef STATUS
+typedef enum {
+    OK = 0,
+    FAIL,
+    PENDING,
+    BUSY,
+    CANCEL,
+} STATUS;
++#endif
+
+Please follow the [Espressif instructions](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html) to set up the environment.
+
+ESP IDF 4.4.2 only supports Python version 3.10 and below and was tested on version 3.9.16.
 
 ## Apply patches
 
@@ -40,6 +65,14 @@ Please apply patches as below.
 
 ```
 main/lib/usrsctp$ git am ../../../patch/usrsctp/*
+```
+
+### [amazon-kinesis-video-streams-webrtc-sdk-c]
+
+Please apply patches as below.
+
+```
+main/lib/amazon-kinesis-video-streams-webrtc-sdk-c$ git am ../../../patch/amazon-kinesis-video-streams-webrtc-sdk-c/*
 ```
 
 If you run into problems when "git am" patches, you can use the following commands to resolve the problem. Or try "git am --abort" the process of git am, then "git apply" individual patches sequentially (in the order of the sequence number indicated by the file name).
@@ -80,6 +113,12 @@ This project uses pre-recorded h.264 frame files for video streaming.  Please pu
 
  The “%04d” part of the file name should be replaced by a sequence number of the frame.
 
+There are pre-generated video frame files under
+
+    main/lib/amazon-kinesis-video-streams-webrtc-sdk-c/samples/h264SampleFrames/
+
+ready to be copied to sdcard.
+
 Please note that you can not use J-TAG and SD card simultaneously on ESP-Wrover-Kit because they share some pins.
 
 [Generate video source](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-c/blob/master/samples/h264SampleFrames/README.md)
@@ -116,6 +155,28 @@ The current implementation does not support data channel. Please check back late
 When using the [WebRTC SDK Test Page](https://awslabs.github.io/amazon-kinesis-video-streams-webrtc-sdk-js/examples/index.html) to validate the demo, you may get m-line mismatch errors.  Different browsers have different behaviors.  To work around such errors, you need to run the [sample](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-js/#Development) in [amazon-kinesis-video-streams-webrtc-sdk-js](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-js), and disable audio functionality of audio. This patch disables the audio functionality.  A later release of this project may eliminate the need for this.
 
 patch/amazon-kinesis-video-streams-webrtc-sdk-js/0001-diable-offerToReceiveAudio.patch`
+
+Quickly steps to do above
+
+1. Click https://awslabs.github.io/amazon-kinesis-video-streams-webrtc-sdk-js/examples/index.html
+
+2. Right click on the page, click 'save as', make sure the format is 'Webpage, Complete" and save. The 'KVS WebRTC Test Page.html' file and 'KVS WebRTC Test Page_files' directory are save.
+
+3. Enter the 'KVS WebRTC Test Page_files' directory and patch the 'viewer.js' file by commented out SDP offer to receive audio.
+
+    console.log('[VIEWER] Creating SDP offer');
+                await viewer.peerConnection.setLocalDescription(
+                    await viewer.peerConnection.createOffer({
+                        // offerToReceiveAudio: true,
+                        offerToReceiveVideo: true,
+                    }),
+                );
+
+4. Load the page
+
+    KVS WebRTC Test Page.html
+
+  for WebRTC testing
 
 ## Security
 
