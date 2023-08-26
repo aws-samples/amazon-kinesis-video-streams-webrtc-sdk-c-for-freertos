@@ -344,7 +344,9 @@ PVOID app_media_source_run(PVOID args)
     DLOGI("media source is starting");
 
     THREAD_CREATE_EX(&videoSenderTid, APP_MEDIA_VIDEO_SENDER_THREAD_NAME, APP_MEDIA_VIDEO_SENDER_THREAD_SIZE, TRUE, sendVideoPackets, (PVOID) pFileSrcContext);
-    //THREAD_CREATE_EX(&audioSenderTid, APP_MEDIA_AUDIO_SENDER_THREAD_NAME, APP_MEDIA_AUDIO_SENDER_THREAD_SIZE, TRUE, sendAudioPackets, (PVOID) pFileSrcContext);
+#ifdef ENABLE_AUDIO
+    THREAD_CREATE_EX(&audioSenderTid, APP_MEDIA_AUDIO_SENDER_THREAD_NAME, APP_MEDIA_AUDIO_SENDER_THREAD_SIZE, TRUE, sendAudioPackets, (PVOID) pFileSrcContext);
+#endif
 
     if (videoSenderTid != INVALID_TID_VALUE) {
         //#TBD, the thread_join does not work.
@@ -381,3 +383,12 @@ AppMediaSrc gAppMediaSrc = {
     .app_media_source_isShutdown = NULL,
     .app_media_source_detroy = app_media_source_detroy
 };
+
+#ifdef ENABLE_AUDIO_SENDRECV
+PVOID app_media_sink_onFrame(PVOID pArgs)
+{
+    STATUS retStatus = STATUS_SUCCESS;
+
+    return (PVOID)(ULONG_PTR) retStatus;
+}
+#endif

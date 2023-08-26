@@ -63,6 +63,8 @@ if (ENABLE_DATA_CHANNEL)
 else()
         set(ENABLE_DATA_CHANNEL OFF CACHE BOOL "Enable support for data channel")
 endif()
+#add_definitions(-DENABLE_AUDIO)
+#add_definitions(-DENABLE_AUDIO_SENDRECV)
 
 
 message("############################## start llhttp ##############################")
